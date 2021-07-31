@@ -42,7 +42,10 @@ void Modelo::createNewTree(const json obj)
  */
 int Endpoint::runWS(std::shared_ptr<Control> c)
 {
-    return 0; // TODO: Implement
+    /* TEMPORAL comportamiento simulado */
+    json obj = json::parse(R"({"left":{"node":2},"node":1,"right":{"left":{"node":4},"node":3}})");
+    c->newTreeInterface(obj);
+    return 0;
 }
 
 
