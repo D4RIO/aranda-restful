@@ -5,9 +5,11 @@ CC:=g++
 .PHONY: all json.hpp
 
 all:restful
-restful: restful.o
+restful: restful.o main.o
 	$(CC) -o $@ $^
-restful.o: restful.cpp json.hpp
+main.o: main.cpp restful.hpp
+	$(CC) -c $<
+restful.o: restful.cpp json.hpp restful.hpp
 	$(CC) -c $<
 
 json.hpp:
