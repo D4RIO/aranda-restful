@@ -7,9 +7,18 @@
 int Control::run(void)
 {
 
-  Endpoint webServices(shared_from_this());
-  return webServices.runWS();
+    Endpoint webServices(shared_from_this());
+    return webServices.runWS();
 
+}
+
+
+
+/* Interfaz de creación de árboles
+ */
+void Control::newTreeInterface(const json obj)
+{
+    // para implementar Control necesita acceder al Modelo
 }
 
 
@@ -18,7 +27,7 @@ int Control::run(void)
  */
 int Endpoint::runWS()
 {
-  return 0; // TODO: Implement
+    return 0; // TODO: Implement
 }
 
 

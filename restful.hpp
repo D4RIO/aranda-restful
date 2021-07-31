@@ -2,6 +2,8 @@
 #define _RESTFUL_HPP_
 
 #include <memory> // shared_ptr
+#include "json.hpp" // soporte para JSON (nlohmann)
+using json=nlohmann::json;
 
 /* Funcionalidad similar a la de un Service en MVCS
  * La idea es encapsular la lógica de persistencia (BBDD) y
@@ -21,6 +23,7 @@ class Control
 public:
   Control() {}
   int run(void); // la interfaz externa principal
+  void newTreeInterface(const json);
 };
 
 
@@ -48,6 +51,7 @@ protected:
   std::shared_ptr<Persist> persistService;
 public:
   Modelo() {std::make_shared<Persist>();}
+  void createNewTree(const json);
 };
 
 
