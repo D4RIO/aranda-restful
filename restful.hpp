@@ -2,6 +2,14 @@
 #define _RESTFUL_HPP_
 
 #include <memory> // shared_ptr
+#include "json.hpp" // soporte para JSON (nlohmann)
+using json=nlohmann::json;
+
+
+/* forward */
+class Control;
+
+
 
 /* Funcionalidad similar a la de un Service en MVCS
  * La idea es encapsular la lógica de persistencia (BBDD) y
@@ -14,28 +22,13 @@ public:
 
 
 
-/* Funcionalidad similar a la del MVC Controller
- */
-class Control
-  :public std::enable_shared_from_this<Control> {
-public:
-  Control() {}
-  int run(void); // la interfaz externa principal
-};
-
-
-
 /* Funcionalidad similar a MVC View
  * La idea es encapsular el manejo de cualquier opcion de interfaz.
  */
 class Endpoint {
-protected:
-  Endpoint() {}         // Se impide la construcción sin un control
-  std::shared_ptr<Control> control;
 public:
-  Endpoint (std::shared_ptr<Control> c) {control = c;}
-  auto Controlador() {return control;}
-  int runWS(void);      // Control de los WebServices
+  Endpoint () {}
+  int runWS(std::shared_ptr<Control> control);      // Control de los WebServices
 };
 
 
@@ -45,11 +38,27 @@ public:
  */
 class Modelo {
 protected:
+  json arbol; // Por conveniencia, el árbol es un objeto JSON
   std::shared_ptr<Persist> persistService;
 public:
   Modelo() {std::make_shared<Persist>();}
+  void createNewTree(const json);
 };
 
+
+
+/* Funcionalidad similar a la del MVC Controller
+ */
+class Control
+  :public std::enable_shared_from_this<Control> {
+private:
+  std::shared_ptr<Endpoint> webServices;
+  std::shared_ptr<Modelo> modeloArbol;
+public:
+  Control();
+  int run(void); // la interfaz externa principal
+  void newTreeInterface(const json);
+};
 
 
 
