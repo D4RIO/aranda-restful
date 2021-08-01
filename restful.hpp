@@ -43,6 +43,8 @@ protected:
 public:
   Modelo() {std::make_shared<Persist>();}
   void createNewTree(const json);
+  // el objeto de búsqueda debe contener: id, node_a, node_b
+  std::shared_ptr<json> lowestCommonAncestor(const json);
 };
 
 
@@ -58,6 +60,7 @@ public:
   Control();
   int run(void); // la interfaz externa principal
   void newTreeInterface(const json);
+  std::shared_ptr<json> lowestCommonAncestorInterface(const json);
 };
 
 
