@@ -1,6 +1,9 @@
 #include <iostream>
-#include <stack> // std::stack<>
+#include <memory>  // make_shared<>() ... etc
+#include <restbed> // REST API
+#include <stack>   // std::stack<>
 #include "restful.hpp"
+
 
 
 
@@ -41,6 +44,8 @@ std::shared_ptr<json> Control::lowestCommonAncestorInterface(const json obj)
 
 void Modelo::createNewTree(const json obj)
 {
+    if (obj.find("node")==obj.end())
+        throw std::string("Todos los árboles deben tener al menos un nodo!");
     arbol = obj;
 }
 
@@ -51,7 +56,6 @@ std::shared_ptr<json> Modelo::lowestCommonAncestor(const json objBusqueda)
     std::shared_ptr<json> LCA = std::make_shared<json>();
     std::stack<json> camino, nodo_a, nodo_b;
     std::stack< std::pair<json,json> > working;
-
 
     if (objBusqueda.find("id") == objBusqueda.end())
         throw std::string ("ID del árbol requerido (falta campo id)");
@@ -116,21 +120,134 @@ std::shared_ptr<json> Modelo::lowestCommonAncestor(const json objBusqueda)
 
 /* Control principal de los WS
  */
-int Endpoint::runWS(std::shared_ptr<Control> c)
+int Endpoint::runWS(std::shared_ptr<Control> control)
 {
-    /* TEMPORAL comportamiento simulado */
+    auto res1 = std::make_shared<restbed::Resource>();
+    auto res2 = std::make_shared<restbed::Resource>();
+
+    res1->set_path( "/crear-arbol" );
+    res1->set_method_handler( "POST",
+            [&](const std::shared_ptr<restbed::Session> session)
+            { /* Web Service 1 : POST (Crear tree) */
+
+                const auto request = session->get_request();
+
+                // Se obtiene la longitud del contenido de la solicitud en content_length
+                int content_length;
+                request->get_header("Content-Length", content_length, 0);
+
+                // Procesa el contenido del POST
+                session->fetch(content_length,
+                        [&](const std::shared_ptr<restbed::Session> session, const restbed::Bytes &body)
+                        {
+                            // RestBed devuelve un contenedor (vector<uint8_t>)
+                            // Para impedir que el webservice permita crear árboles excesivamente
+                            // grandes, se limita el tamaño máximo del pedido a 1 MiB, que debería
+                            // ser suficiente para representar árboles binarios.
+                            if (body.size()>(1024*1024)) {
+                                auto msg = std::string("Se admiten hasta 1 MiB de datos");
+                                session->close(restbed::BAD_REQUEST, msg.c_str(), {
+                                        {"Content-Length", std::to_string(msg.length())},
+                                        {"Connection", "close"}
+                                    });
+                            }
+                            else {
+                                auto req_string = std::string((char*)body.data(), body.size());
+                                auto request = json::parse(req_string);
+
+                                try {
+                                    auto msg = std::string("Árbol creado correctamente");
+                                    control->newTreeInterface(request);
+                                    session->close( restbed::OK, msg, {
+                                            {"Content-Length", std::to_string(msg.length())},
+                                            {"Connection", "close"}
+                                        });
+                                }
+                                catch (std::string e){
+                                    auto msg = std::string("Ocurrió un error al procesar la solicitud: ");
+                                    msg.append(e);
+                                    session->close(restbed::BAD_REQUEST, msg, {
+                                            {"Content-Length", std::to_string(msg.length())},
+                                            {"Connection", "close"}
+                                        });
+                                }
+                                catch (...) {
+                                    auto msg = std::string("Ocurrió un error al procesar la solicitud.");
+                                    session->close(restbed::BAD_REQUEST, msg, {
+                                            {"Content-Length", std::to_string(msg.length())},
+                                            {"Connection", "close"}
+                                        });                                    
+                                }
+                            }
+                        });
+            });
+
+  
+    res2->set_path( "/ancestro-comun" );
+    res2->set_method_handler( "GET",
+            [&](const std::shared_ptr<restbed::Session> session)
+            { /* Web Service 2 : GET */
+                              
+                const auto request = session->get_request( );
+
+                auto content_length = 0;
+                request->get_header( "Content-Length", content_length);
+                std::string qValue = request->get_query_parameter("q", "");
+
+                if (qValue == "") {
+                    auto msg = std::string("Campo de solicitud vacío (q)");
+                    session->close(restbed::BAD_REQUEST, msg, {
+                            {"Content-Length", std::to_string(msg.length())},
+                            {"Connection", "close"}
+                        });
+                }
+                else {
+
+                    try {
+                        std::shared_ptr<json> LCA = control->lowestCommonAncestorInterface(json::parse(qValue));
+                        std::string LCAConvertido;
+                        if (LCA->is_string()) {
+                            LCAConvertido = LCA->get<std::string>();
+                        }
+                        else {
+                            LCAConvertido = LCA->dump();
+                        }
+                        session->close (restbed::OK, LCAConvertido, {
+                                {"Content-Length", std::to_string(LCAConvertido.length())},
+                                {"Connection", "close"}
+                            });
+                    }
+                    catch (std::string e){
+                        auto msg = std::string("Ocurrió un error al procesar la solicitud: ");
+                        msg.append(e);
+                        session->close(restbed::BAD_REQUEST, msg, {
+                                {"Content-Length", std::to_string(msg.length())},
+                                {"Connection", "close"}
+                            });
+                    }
+                    catch (...) {
+                        auto msg = std::string("Ocurrió un error al procesar la solicitud.");
+                        session->close(restbed::BAD_REQUEST, msg, {
+                                {"Content-Length", std::to_string(msg.length())},
+                                {"Connection", "close"}
+                            });                                    
+                    }
+
+                }
+            });
+
     try {
-        json obj = json::parse(R"({"id":"some-tree","left":{"node":"ar"},"node":"dario","right":{"left":{"node":".ar"},"node":".com"}})");
-        json req = json::parse(R"({"id":"some-tree","node_a":".ar","node_b":"dario"})");
-        c->newTreeInterface(obj);
-        std::cout << c->lowestCommonAncestorInterface(req)->dump(2) << std::endl;
-    }
-    catch (std::string e) {
-        std::cerr << e << std::endl;
+        restbed::Service service;
+        service.publish( res1 );
+        service.publish( res2 );
+        service.start();
     }
     catch (...) {
-        std::cerr << "Excepción inesperada en Endpoint.runWS()" << std::endl;
+        std::cerr << "Error fatal: No se pudieron exponer los webservices! "
+                     "Asegurese de tener permiso y que el puerto no esté en uso!" << std::endl;
+        return 1;
     }
-    return 0;
+
+    return EXIT_SUCCESS;
 }
 

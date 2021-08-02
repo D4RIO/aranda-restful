@@ -1,0 +1,46 @@
+#!/bin/bash
+
+define(){ IFS='\n' read -r -d '' ${1} || true; }
+
+# define este árbol:
+#      __ (1) __
+#   (2)        _(3)_
+# (4) (5)   (6)     (7)
+#                 (8) (9)
+#
+define DATA << 'EOF'
+{
+  "id":"tree-01",
+  "node":1,
+  "left": {
+    "node": 2,
+    "left": {
+      "node":4
+    },
+    "right": {
+      "node": 5
+    }
+  },
+  "right": {
+    "node": 3,
+    "left": {
+       "node":6
+    },
+    "right": {
+      "node": 7,
+      "left":{
+        "node":8
+      },
+      "right":{
+        "node":9
+      }
+    }
+  }
+}
+EOF
+
+curl --header "Content-Type: application/json" \
+     --request POST \
+     -w'\n'\
+     --data "${DATA}" \
+     http://localhost/crear-arbol

@@ -1,12 +1,15 @@
 # COMPILADOR
 CC:=g++
 
+# FLAGS DE ENLAZADO
+LINK_FLAGS:=-l restbed
+
 # TARGETS VIRTUALES
 .PHONY: all json.hpp
 
 all:restful
 restful: restful.o main.o
-	$(CC) -o $@ $^
+	$(CC) -o $@ $^ $(LINK_FLAGS)
 main.o: main.cpp restful.hpp
 	$(CC) -c $<
 restful.o: restful.cpp json.hpp restful.hpp
