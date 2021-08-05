@@ -57,11 +57,19 @@ std::shared_ptr<json> Modelo::lowestCommonAncestor(const json objBusqueda)
     std::stack<json> camino, nodo_a, nodo_b;
     std::stack< std::pair<json,json> > working;
 
-    if (objBusqueda.find("id") == objBusqueda.end())
+    auto contieneNodo = [] (json o, std::string nodo) {
+        // closure para simplificar la verificación de existencia
+        // de un nodo en un objeto JSON
+        return o.find(nodo)!=o.end();
+    };
+
+    if (! contieneNodo (objBusqueda, "id"))
         throw std::string ("ID del árbol requerido (falta campo id)");
-    if (objBusqueda.find("node_a") == objBusqueda.end()
-        || objBusqueda.find("node_b") == objBusqueda.end())
+
+    if (! contieneNodo (objBusqueda, "node_a") ||
+        ! contieneNodo (objBusqueda, "node_b") )
         throw std::string ("Nodos de búsqueda requeridos (falta campo node_a o node_b)");
+
     if (arbol.is_null())
         throw std::string("No se encontró ningún árbol (campo id erróneo)");
 
@@ -70,29 +78,31 @@ std::shared_ptr<json> Modelo::lowestCommonAncestor(const json objBusqueda)
     working.push({0, this->arbol});
 
     
-    while (!working.empty())
+    while (! working.empty())
     {
         auto i = working.top().first;
         auto o = working.top().second;
         working.pop();
 
-        if (!camino.empty())
+        if (! camino.empty())
             while (i != camino.top()) {
                 camino.pop();
             }
 
-        if (o["node"].is_null())
+        if (! contieneNodo(o, "node"))
             throw std::string (R"(Árbol mal formado, todos los nodos deben tener un campo "node")");
-        
+
         camino.push(o["node"]);
-        if (o["node"]==objBusqueda["node_a"])
-            nodo_a = camino;
-        if (o["node"]==objBusqueda["node_b"])
-            nodo_b = camino;
-        if (o.find("left") != o.end()) {
+
+        // guardado de la pila como dirección de los nodos
+        if (o["node"]==objBusqueda["node_a"])  nodo_a = camino;
+        if (o["node"]==objBusqueda["node_b"])  nodo_b = camino;
+
+        // continúa el DFS
+        if (contieneNodo (o, "left")) {
             working.push({o["node"],o["left"]});
         }
-        if (o.find("right") != o.end()) {
+        if (contieneNodo (o, "right")) {
             working.push({o["node"],o["right"]});
         }
     };
