@@ -1,7 +1,7 @@
 #include <iostream>
-#include <memory>  // make_shared<>() ... etc
-#include <restbed> // REST API
-#include <stack>   // std::stack<>
+#include <memory>    // make_shared<>() ... etc
+#include <restbed>   // REST API
+#include <stack>     // std::stack<>
 #include "restful.hpp"
 
 
@@ -28,9 +28,9 @@ int Control::run(void)
 
 /* Interfaz de creación de árboles
  */
-void Control::newTreeInterface(const json obj)
+int Control::newTreeInterface(const json obj)
 {
-    modeloArbol->createNewTree(obj);
+    return modeloArbol->createNewTree(obj);
 }
 
 
@@ -42,11 +42,32 @@ std::shared_ptr<json> Control::lowestCommonAncestorInterface(const json obj)
 
 
 
-void Modelo::createNewTree(const json obj)
+Modelo::Modelo()
 {
-    if (obj.find("node")==obj.end())
+    persistService = std::make_shared<Persist>();
+}
+
+
+
+int Modelo::createNewTree(const json o)
+{
+    if (o.find("node")==o.end())
         throw std::string("Todos los árboles deben tener al menos un nodo!");
-    arbol = obj;
+
+    // Los errores en INSERT no se informan detalladamente al cliente, pero se loguean
+    try {
+
+        return persistService->insert(o.dump());
+
+    }
+    catch (std::string e) {
+        std::cerr << "Error en INSERT: " << e << std::endl;
+        throw std::string ("Error interno. No se puede crear el árbol.");
+    }
+    catch (...) {
+        std::cerr << "Error inesperado en INSERT" << std::endl;
+        throw std::string ("Error interno. No se puede crear el árbol.");
+    }
 }
 
 
@@ -56,6 +77,7 @@ std::shared_ptr<json> Modelo::lowestCommonAncestor(const json objBusqueda)
     std::shared_ptr<json> LCA = std::make_shared<json>();
     std::stack<json> camino, nodo_a, nodo_b;
     std::stack< std::pair<json,json> > working;
+    json arbol;
 
     auto contieneNodo = [] (json o, std::string nodo) {
         // closure para simplificar la verificación de existencia
@@ -70,12 +92,22 @@ std::shared_ptr<json> Modelo::lowestCommonAncestor(const json objBusqueda)
         ! contieneNodo (objBusqueda, "node_b") )
         throw std::string ("Nodos de búsqueda requeridos (falta campo node_a o node_b)");
 
-    if (arbol.is_null())
+    try {
+        std::string arbol_string = this->persistService->select(objBusqueda["id"].dump());
+        arbol = json::parse(arbol_string);
+    }
+    catch (std::string e) {
+        std::cerr << "No se encontró el árbol ID: ["<< objBusqueda["id"] << "]" << std::endl;
+        std::cerr << "Descripción: " << e << std::endl;
         throw std::string("No se encontró ningún árbol (campo id erróneo)");
-
+    }
+    catch (...) {
+        std::cerr << "No se encontró el árbol ID: ["<< objBusqueda["id"] << "]" << std::endl;
+        throw std::string("No se encontró ningún árbol (campo id erróneo)");
+    }
 
     // Se comienza por el nodo raíz, sin último padre
-    working.push({0, this->arbol});
+    working.push({0, arbol});
 
     
     while (! working.empty())
@@ -166,10 +198,11 @@ int Endpoint::runWS(std::shared_ptr<Control> control)
                                 auto request = json::parse(req_string);
 
                                 try {
-                                    auto msg = std::string("Árbol creado correctamente");
-                                    control->newTreeInterface(request);
-                                    session->close( restbed::OK, msg, {
-                                            {"Content-Length", std::to_string(msg.length())},
+                                    json response;
+                                    auto id = control->newTreeInterface(request);
+                                    response["id"]=id;
+                                    session->close( restbed::OK, response.dump(), {
+                                            {"Content-Length", std::to_string(response.dump().length())},
                                             {"Connection", "close"}
                                         });
                                 }
@@ -246,11 +279,14 @@ int Endpoint::runWS(std::shared_ptr<Control> control)
                 }
             });
 
+    auto settings = std::make_shared< restbed::Settings >();
+    settings->set_worker_limit( 1 );
+
     try {
         restbed::Service service;
         service.publish( res1 );
         service.publish( res2 );
-        service.start();
+        service.start( settings );
     }
     catch (...) {
         std::cerr << "Error fatal: No se pudieron exponer los webservices! "
@@ -261,3 +297,200 @@ int Endpoint::runWS(std::shared_ptr<Control> control)
     return EXIT_SUCCESS;
 }
 
+
+Persist::Persist()
+{   // Conexión a la BBDD
+    auto exit = sqlite3_open( "example.db", &(this->db) );
+
+    // Esta excepción debe llegar a MAIN, no capturar antes.
+    if (exit)
+        throw std::string("Error abriendo la base de datos: ").append(sqlite3_errmsg(db));
+
+    auto sql =                                    \
+        "CREATE TABLE IF NOT EXISTS ARBOLES ( "   \
+        "  ID INTEGER PRIMARY KEY,"                  \
+        "  JSON TEXT UNIQUE NOT NULL"                    \
+        ");";
+
+    exit = sqlite3_exec (db, sql, NULL, NULL, NULL);
+
+    // Esta excepción debe llegar a MAIN, no capturar antes.
+    if (exit)
+        throw std::string("Error creando la tabla: ").append(sqlite3_errmsg(db));
+
+    sql =                               \
+        "INSERT INTO ARBOLES (JSON) "   \
+        "VALUES (?);";
+
+    exit = sqlite3_prepare_v2 ( this->db, sql, strlen (sql), &(this->insert_stmt), NULL );
+
+    // Esta excepción debe llegar a MAIN, no capturar antes.
+    if (exit)
+        throw std::string("Error compilando la consulta INSERT: ").append(sqlite3_errmsg(db));
+
+    sql =                                       \
+        "SELECT JSON FROM ARBOLES WHERE ID = ?;";
+
+    exit = sqlite3_prepare_v2 ( this->db, sql, strlen (sql), &(this->select_json_stmt), NULL );
+
+    // Esta excepción debe llegar a MAIN, no capturar antes.
+    if (exit)
+        throw std::string("Error compilando la consulta SELECT JSON: ").append(sqlite3_errmsg(db));
+
+    sql =                                       \
+        "SELECT ID FROM ARBOLES WHERE JSON = ?;";
+
+    exit = sqlite3_prepare_v2 ( this->db, sql, strlen (sql), &(this->select_id_stmt), NULL );
+
+    // Esta excepción debe llegar a MAIN, no capturar antes.
+    if (exit)
+        throw std::string("Error compilando la consulta SELECT ID: ").append(sqlite3_errmsg(db));
+}
+
+int Persist::insert( const std::string json_to_save )
+{
+    /*=================================== INSERT =======================================*/
+
+    auto exit = sqlite3_reset ( this->insert_stmt );
+
+    // Esta excepción debe llegar al WS.
+    // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
+    if (exit && exit != SQLITE_CONSTRAINT)
+        throw std::string("Error inesperado preparándose para la consulta INSERT (reset) [")
+            .append(std::to_string(exit))
+            .append("]: ")
+            .append(sqlite3_errmsg(db));
+
+    // INSERT INTO ARBOLES (JSON)
+    // VALUES (?);
+    exit = sqlite3_bind_text (
+        this->insert_stmt,      // Statement compilado
+        1,                      // Enlazar al 1er valor de la consulta
+        json_to_save.c_str(),   // Qué valor enlazar
+        json_to_save.length(),  // Longitud del valor enlazado
+        NULL
+        );
+
+    // Esta excepción debe llegar al WS.
+    // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
+    if (exit)
+        throw std::string("Error alimentando a la consulta INSERT (bind): ").append(sqlite3_errmsg(db));
+
+    exit = sqlite3_step ( this->insert_stmt );
+
+    // Esta excepción debe llegar al WS.
+    // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
+    if (exit != SQLITE_DONE && exit != SQLITE_CONSTRAINT)
+        throw std::string("Error ejecutando la consulta INSERT [")
+            .append(std::to_string(exit))
+            .append("]: ")
+            .append(sqlite3_errmsg(db));
+
+    /*==================================== SELECT ======================================*/
+
+
+    exit = sqlite3_reset ( this->select_id_stmt );
+
+    // Esta excepción debe llegar al WS.
+    // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
+    if (exit)
+        throw std::string("Error inesperado preparándose para la consulta SELECT ID (reset): ").append(sqlite3_errmsg(db));
+
+    // SELECT ID FROM ARBOLES
+    // WHERE JSON=?;
+    exit = sqlite3_bind_text (
+        this->select_id_stmt,   // Statement compilado
+        1,                      // Enlazar al 1er valor de la consulta
+        json_to_save.c_str(),   // Qué valor enlazar
+        json_to_save.length(),  // Longitud del valor enlazado
+        NULL
+        );
+
+    // Esta excepción debe llegar al WS.
+    // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
+    if (exit)
+        throw std::string("Error alimentando a la consulta SELECT ID (bind): ").append(sqlite3_errmsg(db));
+
+    exit = sqlite3_step ( this->select_id_stmt );
+
+    // Esta excepción debe llegar al WS.
+    // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
+    if (exit != SQLITE_ROW)
+        throw std::string("Error ejecutando la consulta SELECT_ID (sin resultados)[")
+            .append(std::to_string(exit))
+            .append("]: ")
+            .append(sqlite3_errmsg(db));
+
+    auto id = sqlite3_column_int ( this->select_id_stmt, 0 );
+
+    return id;
+}
+
+std::string Persist::select(const std::string id)
+{
+    auto exit = sqlite3_reset ( this->select_json_stmt );
+
+    // Esta excepción debe llegar al WS.
+    // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
+    if (exit)
+        throw std::string("Error inesperado preparándose para la consulta SELECT JSON (reset) [")
+            .append(std::to_string(exit))
+            .append("]: ")
+            .append(sqlite3_errmsg(db));
+
+    // SELECT JSON FROM ARBOLES
+    // WHERE ID=?;
+    exit = sqlite3_bind_text (
+        this->select_json_stmt, // Statement compilado
+        1,                      // Enlazar al 1er valor de la consulta
+        id.c_str(),             // Qué valor enlazar
+        id.length(),            // Longitud del valor enlazado
+        NULL
+        );
+
+    // Esta excepción debe llegar al WS.
+    // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
+    if (exit)
+        throw std::string("Error alimentando a la consulta SELECT JSON (bind) [")
+            .append(std::to_string(exit))
+            .append("]: ")
+            .append(sqlite3_errmsg(db));
+
+    exit = sqlite3_step ( this->select_json_stmt );
+
+    // Esta excepción debe llegar al WS.
+    // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
+    if (exit != SQLITE_ROW) {
+        throw std::string("Error ejecutando la consulta SELECT JSON (sin resultados)[")
+            .append(std::to_string(exit))
+            .append("]: ")
+            .append(sqlite3_errmsg(db));
+    }
+
+    auto result = std::string((char*)sqlite3_column_text ( this->select_json_stmt, 0 ));
+
+    return result;
+}
+
+Persist::~Persist()
+{
+    auto exit = sqlite3_finalize ( this->insert_stmt );
+
+    if (exit)
+        std::cerr << std::string("Error finalizando la consulta INSERT: [")
+            .append(std::to_string(exit))
+            .append("]: ")
+            .append(sqlite3_errmsg(db))
+                  << std::endl;
+
+    exit = sqlite3_finalize ( this->select_id_stmt );
+
+    if (exit)
+        std::cerr << std::string("Error finalizando la consulta SELECT ID: [")
+            .append(std::to_string(exit))
+            .append("]: ")
+            .append(sqlite3_errmsg(db))
+                  << std::endl;
+
+    sqlite3_close( this->db );
+}

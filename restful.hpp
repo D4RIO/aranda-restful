@@ -1,8 +1,9 @@
 #ifndef _RESTFUL_HPP_
 #define _RESTFUL_HPP_
 
-#include <memory> // shared_ptr
-#include "json.hpp" // soporte para JSON (nlohmann)
+#include <memory>    // shared_ptr
+#include <sqlite3.h> // SQLite3
+#include "json.hpp"  // soporte para JSON (nlohmann)
 using json=nlohmann::json;
 
 
@@ -16,8 +17,17 @@ class Control;
  * hacerla transparente para el modelo
  */
 class Persist {
+private:
+  sqlite3      *db;
+  sqlite3_stmt *insert_stmt;
+  sqlite3_stmt *select_id_stmt;
+  sqlite3_stmt *select_json_stmt;
+  std::string   descripcion_error;
 public:
-  Persist() {}
+  Persist(); // Constructor, crea el archivo de BBDD si no existe
+  ~Persist();
+  int insert (const std::string);
+  std::string select (const std::string);
 };
 
 
@@ -38,11 +48,10 @@ public:
  */
 class Modelo {
 protected:
-  json arbol; // Por conveniencia, el árbol es un objeto JSON
   std::shared_ptr<Persist> persistService;
 public:
-  Modelo() {std::make_shared<Persist>();}
-  void createNewTree(const json);
+  Modelo();
+  int createNewTree(const json);
   // el objeto de búsqueda debe contener: id, node_a, node_b
   std::shared_ptr<json> lowestCommonAncestor(const json);
 };
@@ -59,7 +68,7 @@ private:
 public:
   Control();
   int run(void); // la interfaz externa principal
-  void newTreeInterface(const json);
+  int newTreeInterface(const json);
   std::shared_ptr<json> lowestCommonAncestorInterface(const json);
 };
 

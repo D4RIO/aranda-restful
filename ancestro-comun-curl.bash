@@ -1,19 +1,226 @@
 #!/bin/bash
 
-define(){ IFS='\n' read -r -d '' ${1} || true; }
+# Estas son pruebas de stress para los webservices. Al llamar [ancestro-comun-curl 5 10000]
+# por ejemplo, se hacen 5 rondas de 10000 (diez mil) solicitudes al servidor.
+# Cada ronda de 10000 debe terminar para que comience la ronda siguiente.
 
-# Esta consulta busca el primer ancestro común
-# de 9 y 6 en el árbol "tree-01"
-define DATA <<'EOF'
-{
-  "id":"tree-01",
-  "node_a":3,
-  "node_b":9
-}
+# En cada ronda, se mide el tiempo total de respuesta del servidor para el total de las solicitudes.
+
+# Para evitar sesgos por recursos propios de la máquina que emite las solicitudes,
+# se crean dos blancos que sirven de comparación:
+
+#   a) blanco de script: El script nunca llama a curl, pero hace todos los forks y escrituras de
+#                        logs normalmente. Este tiempo es propio del script de pruebas.
+#   b) blanco de red:    Se usa curl pero la solicitud para los WS es inválida, forzando un error
+#                        y evitando que el servidor ejecute el WS en cuestión. Este tiempo de
+#                        respuesta es el mínimo que se puede obtener sin tener en cuenta la aplicación.
+
+# Se puede usar este script para obtener muestras de 'n' mediciones de tiempo en condiciones controladas.
+# Al finalizar el SCRIPT, la última ejecución de todos los casos de prueba se guarda, sirviendo
+# también para probar situaciones particulares. Cada test está titulado de manera intuitiva.
+
+
+
+############################################################
+#                   CONFIGURACIÓN BÁSICA
+############################################################
+
+IP_SERVER=localhost
+
+
+############################################################
+#      PROCESAMIENTO DE PARÁMETROS Y CONFIGURACIÓN
+############################################################
+
+MUESTREOS=$1
+SOLICITUDES_POR_MUESTREO=$2
+
+if [ "x${MUESTREOS}" == "x" ]
+then
+    echo -e "\nuso: ./ancestro-comun-curl <muestreos> <numero-solicitudes>\n"
+    exit 1
+fi
+
+if [ "x${SOLICITUDES_POR_MUESTREO}" == "x" ]
+then
+    echo -e "\nuso: ./ancestro-comun-curl <muestreos> <numero-solicitudes>\n"
+    exit 1
+fi
+
+SALIDA_TESTS=SALIDA_TESTS_${MUESTREOS}x${SOLICITUDES_POR_MUESTREO}
+MUESTREO_TIEMPOS=MUESTREO_TIEMPOS_${MUESTREOS}x${SOLICITUDES_POR_MUESTREO}
+
+cat > ${MUESTREO_TIEMPOS}<<EOF
+Esta muestra de tiempos corresponde a ${SOLICITUDES_POR_MUESTREO} solicitudes de ancestro-comun al servidor (cada tiempo medido).
+Esto es, n veces se hicieron ${SOLICITUDES_POR_MUESTREO} solicitudes, más los blancos de red y de script.
+
+Los tiempos de red y de scripts son para calcular la relevancia del tiempo estimado atribuído a demora del webservice.
+
+Datos de la muestra:
+
+   n: ${MUESTREOS}          server: ${IP_SERVER}
+   inicio: $(date)
+
 EOF
 
-curl --header "Content-Type: application/json" \
-     -G\
-     -w'\n'\
-     --data-urlencode "q=${DATA}" \
-     http://localhost/ancestro-comun
+
+############################################################
+#           DEFINICIÓN DE LOS CASOS DE PRUEBA
+############################################################
+
+# Esta consulta busca el primer ancestro común en el arbol $1, de los nodos $2 y $3
+crear_json(){
+    cat <<EOF
+{ "id": $1,
+  "node_a": $2,
+  "node_b": $3  }
+EOF
+}
+
+CASE_A="El más alto es ancestro común"
+EXPECTED_A=3
+DATA_A=$(crear_json 1 3 9)
+
+CASE_B="El ancestro común es el nodo raíz"
+EXPECTED_B=1
+DATA_B=$(crear_json 1 2 8)
+
+CASE_C="El nodo raíz es el más alto y ancestro común"
+EXPECTED_C=1
+DATA_C=$(crear_json 1 1 7)
+
+CASE_D="Mismo nodo, es su propio ancestro común"
+EXPECTED_D=3
+DATA_D=$(crear_json 1 3 3)
+
+CASE_E="Mismo nodo, nodo raíz, es su propio ancestro común"
+EXPECTED_E=1
+DATA_E=$(crear_json 1 1 1)
+
+CASE_F="Mismo nodo, última hoja, es su propio ancestro común"
+EXPECTED_F=8
+DATA_F=$(crear_json 1 8 8)
+
+
+############################################################
+#              FUNCIONES A EJECUTAR EN FORKS
+############################################################
+
+# args: descripcion, expected, data
+#       1            2         3
+run_test() {
+    RESULT=$(curl --header 'Content-Type: application/json' -s -G -w'\n' --data-urlencode "q=${3}" http://${IP_SERVER}/ancestro-comun)
+    if [ "x$2" == "x${RESULT}" ]
+    then
+        RESULT_OK="OK"
+    else
+        RESULT_OK="FAIL"
+    fi
+    echo "${RESULT_OK} res:{$RESULT} (desc: $1)"
+}
+
+# Este test sirve para restar tiempo minimo de respuesta del WS.
+# No envia la variable "q", causando que el programa del server no se ejecute y responda BAD REQUEST.
+run_blank_net_test() {
+    RESULT=$(curl --header 'Content-Type: application/json' -s -G -w'\n' http://${IP_SERVER}/ancestro-comun)
+    if [ "x$2" == "x${RESULT}" ]
+    then
+        RESULT_OK="OK"
+    else
+        RESULT_OK="FAIL"
+    fi
+    echo "${RESULT_OK} res:{$RESULT} (desc: $1)"
+}
+
+# Este test sirve para restar tiempo de este script
+run_blank_test() {
+    RESULT=${EXPECTED}
+    if [ "x$2" == "x${RESULT}" ]
+    then
+        RESULT_OK="OK"
+    fi
+    echo "${RESULT_OK} res:{$RESULT} (desc: $1)"
+}
+
+
+############################################################
+#              FUNCIONES QUE GENERAN FORKS
+############################################################
+
+run_tests() {
+    for i in $(seq 1 6 $SOLICITUDES_POR_MUESTREO)
+    do
+        run_test "${CASE_A}" "${EXPECTED_A}" "${DATA_A}" &
+        run_test "${CASE_B}" "${EXPECTED_B}" "${DATA_B}" &
+        run_test "${CASE_C}" "${EXPECTED_C}" "${DATA_C}" &
+        run_test "${CASE_D}" "${EXPECTED_D}" "${DATA_D}" &
+        run_test "${CASE_E}" "${EXPECTED_E}" "${DATA_E}" &
+        run_test "${CASE_F}" "${EXPECTED_F}" "${DATA_F}" &
+    done
+    wait
+}
+
+run_blank_tests() {
+    for j in $(seq 1 6 $SOLICITUDES_POR_MUESTREO)
+    do
+        run_blank_test "${CASE_A}" "${EXPECTED_A}" &
+        run_blank_test "${CASE_B}" "${EXPECTED_B}" &
+        run_blank_test "${CASE_C}" "${EXPECTED_C}" &
+        run_blank_test "${CASE_D}" "${EXPECTED_D}" &
+        run_blank_test "${CASE_E}" "${EXPECTED_E}" &
+        run_blank_test "${CASE_F}" "${EXPECTED_F}" &
+    done
+    wait
+}
+
+run_blank_net_tests() {
+    for j in $(seq 1 6 $SOLICITUDES_POR_MUESTREO)
+    do
+        run_blank_test "${CASE_A}" "${EXPECTED_A}" &
+        run_blank_test "${CASE_B}" "${EXPECTED_B}" &
+        run_blank_test "${CASE_C}" "${EXPECTED_C}" &
+        run_blank_test "${CASE_D}" "${EXPECTED_D}" &
+        run_blank_test "${CASE_E}" "${EXPECTED_E}" &
+        run_blank_test "${CASE_F}" "${EXPECTED_F}" &
+    done
+    wait
+}
+
+
+############################################################
+#                       MAIN ROUTINE
+############################################################
+
+echo "RUNNING"
+rm ${MUESTREO_TIEMPOS}
+
+echo "$SOLICITUDES_POR_MUESTREO SCRIPT BLANKS" | tee -a ${MUESTREO_TIEMPOS}
+for round in $(seq 1 ${MUESTREOS})
+do
+    echo -n "${round}/${MUESTREOS} "
+    (time run_blank_tests) 2>> ${MUESTREO_TIEMPOS} 1> ${SALIDA_TESTS}
+done
+echo ""
+
+echo "$SOLICITUDES_POR_MUESTREO NET BLANKS" | tee -a ${MUESTREO_TIEMPOS}
+for round in $(seq 1 ${MUESTREOS})
+do
+    echo -n "${round}/${MUESTREOS} "
+    (time run_blank_net_tests) 2>> ${MUESTREO_TIEMPOS} 1> ${SALIDA_TESTS}
+done
+echo ""
+
+echo "$SOLICITUDES_POR_MUESTREO TESTS" | tee -a ${MUESTREO_TIEMPOS}
+for round in $(seq 1 ${MUESTREOS})
+do
+    echo -n "${round}/${MUESTREOS} "
+    (time run_tests) 2>> ${MUESTREO_TIEMPOS} 1> ${SALIDA_TESTS} # se reinicia porque el resultado de los tests blancos no tiene importancia, solo una salida
+done
+echo ""
+
+sed  -i '/^$/d'   ${MUESTREO_TIEMPOS}
+sed  -i '/sys/d'  ${MUESTREO_TIEMPOS}
+sed  -i '/user/d' ${MUESTREO_TIEMPOS}
+sort -u           ${SALIDA_TESTS} | tee ${SALIDA_TESTS}2
+mv ${SALIDA_TESTS}2 ${SALIDA_TESTS}
+
