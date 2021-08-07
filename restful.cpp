@@ -6,49 +6,61 @@
 
 
 
-
+/** ***************************************************************************
+ * Constructor. Instancia el Endpoint y el Modelo como miembros.
+ ** ***************************************************************************/
 Control::Control()
 {
     webServices = std::make_shared<Endpoint>();
     modeloArbol = std::make_shared<Modelo>();
 }
 
-
-
-/* Procedimiento principal del control
- */
+/** ***************************************************************************
+ * Procedimiento principal del control. Ejecuta los Web Services.
+ * @return Estado de error de salida.
+ ** ***************************************************************************/
 int Control::run(void)
 {
-
     return webServices->runWS (shared_from_this());
-
 }
 
-
-
-/* Interfaz de creación de árboles
- */
+/** ***************************************************************************
+ * Interfaz de creación de árboles del controlador.
+ * @see Modelo::createNewTree(const json)
+ * @param obj Objeto nlohmann::json con el árbol a guardar
+ * @return ID del árbol creado (o ya existente)
+ ** ***************************************************************************/
 int Control::newTreeInterface(const json obj)
 {
     return modeloArbol->createNewTree(obj);
 }
 
-
-
+/** ***************************************************************************
+ * Interfaz de búsqueda de ancestro común del controlador.
+ * @see Modelo::lowestCommonAncestor(const json)
+ * @param obj Objeto nlohmann::json con la búsqueda (id, node_a, node_b)
+ * @return JSON conteniendo el ancestro común
+ ** ***************************************************************************/
 std::shared_ptr<json> Control::lowestCommonAncestorInterface(const json obj)
 {
     return modeloArbol->lowestCommonAncestor(obj);
 }
 
-
-
+/** ***************************************************************************
+ * Constructor. Instancia el servicio de persistencia en BD.
+ ** ***************************************************************************/
 Modelo::Modelo()
 {
     persistService = std::make_shared<Persist>();
 }
 
-
-
+/** ***************************************************************************
+ * Creación de árbol a partir de JSON. Persiste el JSON en BD para que sea
+ * accesible mediante consultas. Usa el servicio insert.
+ * @see Persist::insert(std::string)
+ * @param Objeto nlohmann::json con el árbol a guardar
+ * @return ID del árbol creado (o ya existente)
+ ** ***************************************************************************/
 int Modelo::createNewTree(const json o)
 {
     if (o.find("node")==o.end())
@@ -70,8 +82,13 @@ int Modelo::createNewTree(const json o)
     }
 }
 
-
-
+/** ***************************************************************************
+ * Búsqueda de ancestro común más cercano. Se debe proporcionar una búsqueda del
+ * formato {"id":<id>,"node_a":<node>, "node_b":<node>} donde el ID corresponde
+ * al de un árbol creado mediante el servicio de creación de árboles.
+ * @param objBusqueda Objeto nlohmann::json con la búsqueda (id, node_a, node_b)
+ * @return JSON conteniendo el ancestro común
+ ** ***************************************************************************/
 std::shared_ptr<json> Modelo::lowestCommonAncestor(const json objBusqueda)
 {
     std::shared_ptr<json> LCA = std::make_shared<json>();
@@ -158,10 +175,12 @@ std::shared_ptr<json> Modelo::lowestCommonAncestor(const json objBusqueda)
     throw std::string("Error encontrando el ancestro. Verifique que el objeto no contenga más de un árbol.");
 }
 
-
-
-/* Control principal de los WS
- */
+/** ***************************************************************************
+ * Lanzador principal de los Web Services. Estos se ejecutan en hilos distintos
+ * dependiendo de la configuración de RestBed.
+ * @param control Controlador principal, para uso de sus interfaces.
+ * @return Estado final cuando los Web Services se finalizan.
+ ** ***************************************************************************/
 int Endpoint::runWS(std::shared_ptr<Control> control)
 {
     auto res1 = std::make_shared<restbed::Resource>();
@@ -297,7 +316,10 @@ int Endpoint::runWS(std::shared_ptr<Control> control)
     return EXIT_SUCCESS;
 }
 
-
+/** ***************************************************************************
+ * Constructor. Crea el archivo de Base de Datos si no existe, la tabla, y
+ * compila las consultas a BBDD que serán usadas en la aplicación.
+ ** ***************************************************************************/
 Persist::Persist()
 {   // Conexión a la BBDD
     auto exit = sqlite3_open( "example.db", &(this->db) );
@@ -347,6 +369,11 @@ Persist::Persist()
         throw std::string("Error compilando la consulta SELECT ID: ").append(sqlite3_errmsg(db));
 }
 
+/** ***************************************************************************
+ * Servicio de inserción en BBDD con mutex para los hilos de RestBed.
+ * @param json_to_save std::string con JSON del árbol a guardar en BBDD
+ * @return ID del árbol guardado
+ ** ***************************************************************************/
 int Persist::insert( const std::string json_to_save )
 {
     const std::lock_guard<std::mutex> lock( this->stmt_mutex );
@@ -427,6 +454,11 @@ int Persist::insert( const std::string json_to_save )
     return id;
 }
 
+/** ***************************************************************************
+ * Servicio de obtención del árbol a partir de su ID.
+ * @param id std::string con ID del árbol a buscar
+ * @return std::string con JSON del árbol
+ ** ***************************************************************************/
 std::string Persist::select(const std::string id)
 {
     const std::lock_guard<std::mutex> lock( this->stmt_mutex );
@@ -475,6 +507,9 @@ std::string Persist::select(const std::string id)
     return result;
 }
 
+/** ***************************************************************************
+ * Destructor. Finaliza los statements y cierra la conexión a BBDD.
+ ** ***************************************************************************/
 Persist::~Persist()
 {
     auto exit = sqlite3_finalize ( this->insert_stmt );
