@@ -9,8 +9,11 @@ int main (const int, const char**)
         auto restfulControl = std::make_shared<Control>();
         return restfulControl->run();
     }
+    catch (std::string e) {
+        std::cerr << "Error en el controlador principal: " << e << std::endl;
+    }
     catch (...) {
-        std::cerr << "Error en el Controlador principal. Abortado." << std::endl;
+        std::cerr << "Error en el controlador principal. Abortado." << std::endl;
     }
 }
 
