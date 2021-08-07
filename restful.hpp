@@ -2,6 +2,7 @@
 #define _RESTFUL_HPP_
 
 #include <memory>    // shared_ptr
+#include <mutex>     // mutex
 #include <sqlite3.h> // SQLite3
 #include "json.hpp"  // soporte para JSON (nlohmann)
 using json=nlohmann::json;
@@ -22,7 +23,7 @@ private:
   sqlite3_stmt *insert_stmt;
   sqlite3_stmt *select_id_stmt;
   sqlite3_stmt *select_json_stmt;
-  std::string   descripcion_error;
+  std::mutex    stmt_mutex;
 public:
   Persist(); // Constructor, crea el archivo de BBDD si no existe
   ~Persist();

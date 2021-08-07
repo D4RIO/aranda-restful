@@ -280,7 +280,7 @@ int Endpoint::runWS(std::shared_ptr<Control> control)
             });
 
     auto settings = std::make_shared< restbed::Settings >();
-    settings->set_worker_limit( 1 );
+    settings->set_worker_limit( 4 );
 
     try {
         restbed::Service service;
@@ -349,6 +349,7 @@ Persist::Persist()
 
 int Persist::insert( const std::string json_to_save )
 {
+    const std::lock_guard<std::mutex> lock( this->stmt_mutex );
     /*=================================== INSERT =======================================*/
 
     auto exit = sqlite3_reset ( this->insert_stmt );
@@ -428,6 +429,8 @@ int Persist::insert( const std::string json_to_save )
 
 std::string Persist::select(const std::string id)
 {
+    const std::lock_guard<std::mutex> lock( this->stmt_mutex );
+
     auto exit = sqlite3_reset ( this->select_json_stmt );
 
     // Esta excepción debe llegar al WS.
