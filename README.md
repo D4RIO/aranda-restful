@@ -25,7 +25,7 @@ Para compilar se utilizan [`GNU make`](https://www.gnu.org/software/make/ "GNU M
 apt install build-essential
 ```
 
-## Compilación ##
+## Compilación, Documentación y Testing ##
 
 Con todas las dependencias anteriores satisfechas, se puede compilar tan simplemente como:
 
@@ -39,9 +39,22 @@ Para compilar la documentación [DOXYGEN](https://www.doxygen.nl/index.html "Dox
 make doc
 ```
 
-Puede ver la documentación una vez compilada abriendo [doc/html/index.html](doc/html/index.html "Documentación Doxygen").
+NOTA: Puede ver la documentación una vez compilada abriendo [doc/html/index.html](doc/html/index.html "Documentación Doxygen") (este link no funcionará en GitHub porque la documentación compilada no forma parte del repositorio).
 
-## Uso y Pruebas ##
+Las pruebas unitarias están escritas usando [DOCtest](https://github.com/onqtam/doctest "doctest is a new C++ testing framework but is by far the fastest both in compile times (by orders of magnitude) and runtime compared to other feature-rich alternatives."). Durante el testing unitario se usa el puerto 37337 para evitar problemas de permisos. La base de datos durante las pruebas es test/test.db. Para compilar y ejecutar:
+
+``` bash
+make test
+```
+
+## Variables de entorno ##
+
+Se usan variables de entorno para configurar el puerto donde se sirven los web services y el nombre de la base de datos. Estas variables son:
+
+ 1. `RESTFUL_PORT_NO`: El número de puerto en el que servir los web services. Default: `80`.
+ 2. `RESTFUL_DB`: El nombre del archivo de base de datos. Default: `restful.db`.
+
+## Uso y Pruebas Manuales ##
 
 Una vez compilado, el servidor puede iniciarse directamente mediante su ejecutable:
 
@@ -78,7 +91,7 @@ Los webservices se inician en el servidor, que puede ser la misma máquina que e
 }
 ```
 
-En todos los nodos debe existir el campo `node`, y los datos pueden ser cualesquiera que desee siempre que cumplan con el modelo de JSON. Los campos `left` y `right` son opcionales. En conformidad con el [estándar JSON](https://datatracker.ietf.org/doc/html/rfc8259.html#section-1 "RFC 8259: The JavaScript Object Notation (JSON) Data Interchange Format"), el orden de los campos no importa.
+En todos los nodos debe existir el campo `node`, y los datos pueden ser cualesquiera que desee siempre que cumplan con el modelo de JSON (incluso otros objetos). Los campos `left` y `right` son opcionales. En conformidad con el [estándar JSON](https://datatracker.ietf.org/doc/html/rfc8259.html#section-1 "RFC 8259: The JavaScript Object Notation (JSON) Data Interchange Format"), el orden de los campos no importa.
 
 Para probar los servicios manualmente, se puede usar [curl](https://curl.se/docs/manpage.html "CURL: command line tool and library for transferring data with URLs"), por ejemplo:
 

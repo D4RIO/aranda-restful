@@ -298,8 +298,25 @@ int Endpoint::runWS(std::shared_ptr<Control> control)
                 }
             });
 
+    char const *max_threads = getenv( "RESTFUL_MAX_THREADS" );
+    if ( ! max_threads )
+        max_threads = "4";
+
+    char const *port_no = getenv ( "RESTFUL_PORT" );
+    if ( ! port_no )
+        port_no = "80";
+
     auto settings = std::make_shared< restbed::Settings >();
-    settings->set_worker_limit( 4 );
+
+    try {
+        settings->set_worker_limit( std::stoi( max_threads ) );
+        settings->set_port( std::stoi( port_no ) );
+    }
+    catch (...) {
+        std::cerr << "Error fatal estableciendo la configuración del servidor. "
+            "Es posible que esto se deba a establecer mal las variables de entorno." << std::endl;
+        return 1;
+    }
 
     try {
         restbed::Service service;
@@ -321,8 +338,13 @@ int Endpoint::runWS(std::shared_ptr<Control> control)
  * compila las consultas a BBDD que serán usadas en la aplicación.
  ** ***************************************************************************/
 Persist::Persist()
-{   // Conexión a la BBDD
-    auto exit = sqlite3_open( "example.db", &(this->db) );
+{
+    char const *db_name = getenv("RESTFUL_DB");
+    if ( ! db_name )
+        db_name = "restful.db";
+
+    // Conexión a la BBDD
+    auto exit = sqlite3_open( db_name, &(this->db) );
 
     // Esta excepción debe llegar a MAIN, no capturar antes.
     if (exit)
@@ -525,6 +547,15 @@ Persist::~Persist()
 
     if (exit)
         std::cerr << std::string("Error finalizando la consulta SELECT ID: [")
+            .append(std::to_string(exit))
+            .append("]: ")
+            .append(sqlite3_errmsg(db))
+                  << std::endl;
+
+    exit = sqlite3_finalize ( this->select_json_stmt );
+        
+    if (exit)
+        std::cerr << std::string("Error finalizando la consulta SELECT JSON: [")
             .append(std::to_string(exit))
             .append("]: ")
             .append(sqlite3_errmsg(db))
