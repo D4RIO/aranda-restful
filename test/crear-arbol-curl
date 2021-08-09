@@ -2,6 +2,8 @@
 
 define(){ IFS='\n' read -r -d '' ${1} || true; }
 
+IP_SERVER=localhost
+
 # define este árbol:
 #      __ (1) __
 #   (2)        _(3)_
@@ -10,7 +12,6 @@ define(){ IFS='\n' read -r -d '' ${1} || true; }
 #
 define DATA << 'EOF'
 {
-  "id":"tree-01",
   "node":1,
   "left": {
     "node": 2,
@@ -43,4 +44,4 @@ curl --header "Content-Type: application/json" \
      --request POST \
      -w'\n'\
      --data "${DATA}" \
-     http://localhost/crear-arbol
+     http://${IP_SERVER}/crear-arbol

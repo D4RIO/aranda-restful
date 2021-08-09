@@ -116,7 +116,7 @@ run_test() {
     else
         RESULT_OK="FAIL"
     fi
-    echo "${RESULT_OK} res:{$RESULT} (desc: $1)"
+    echo "TEST ${RESULT_OK} res:{$RESULT} (desc: $1)"
 }
 
 # Este test sirve para restar tiempo minimo de respuesta del WS.
@@ -129,7 +129,7 @@ run_blank_net_test() {
     else
         RESULT_OK="FAIL"
     fi
-    echo "${RESULT_OK} res:{$RESULT} (desc: $1)"
+    echo "NET-BLANK ${RESULT_OK} res:{$RESULT} (desc: $1)"
 }
 
 # Este test sirve para restar tiempo de este script
@@ -139,7 +139,7 @@ run_blank_test() {
     then
         RESULT_OK="OK"
     fi
-    echo "${RESULT_OK} res:{$RESULT} (desc: $1)"
+    echo "BLANK ${RESULT_OK} res:{$RESULT} (desc: $1)"
 }
 
 
@@ -209,12 +209,13 @@ do
     (time run_blank_net_tests) 2>> ${MUESTREO_TIEMPOS} 1> ${SALIDA_TESTS}
 done
 echo ""
+rm ${SALIDA_TESTS} # no tiene sentido guardar la salida de los blancos, se genera para medir correctamente el tiempo
 
 echo "$SOLICITUDES_POR_MUESTREO TESTS" | tee -a ${MUESTREO_TIEMPOS}
 for round in $(seq 1 ${MUESTREOS})
 do
     echo -n "${round}/${MUESTREOS} "
-    (time run_tests) 2>> ${MUESTREO_TIEMPOS} 1> ${SALIDA_TESTS} # se reinicia porque el resultado de los tests blancos no tiene importancia, solo una salida
+    (time run_tests) 2>> ${MUESTREO_TIEMPOS} 1>> ${SALIDA_TESTS}
 done
 echo ""
 

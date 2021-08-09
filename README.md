@@ -49,10 +49,11 @@ make test
 
 ## Variables de entorno ##
 
-Se usan variables de entorno para configurar el puerto donde se sirven los web services y el nombre de la base de datos. Estas variables son:
+Se usan variables de entorno para configurar los web services. Estas variables son:
 
  1. `RESTFUL_PORT_NO`: El número de puerto en el que servir los web services. Default: `80`.
  2. `RESTFUL_DB`: El nombre del archivo de base de datos. Default: `restful.db`.
+ 3. `RESTFUL_MAX_THREADS`: El número máximo de hilos a usar. Default: `4`.
 
 ## Uso y Pruebas Manuales ##
 
@@ -113,3 +114,31 @@ curl --header 'Content-Type: application/json' \
      http://localhost/ancestro-comun
 ```
 
+
+## Pruebas de Integración y Métricas ##
+
+Se incluyen en el directorio `test`, dos scripts llamados `crear-arbol-curl` y `ancestro-comun-curl`.
+
+ 1. `crear-arbol-curl` usa CURL para acceder al web service de creación de un árbol modelo.
+ 2. `ancestro-comun-curl` usa CURL para hacer solicitudes de varios casos de uso de pedido de ancestro común.
+
+Estas son pruebas de stress para los web services, enfocadas en el algoritmo de búsqueda del ancestro común, que es el centro de este programa.
+
+Al llamar `bash test/ancestro-comun-curl 5 10000` por ejemplo, se hacen 5 rondas de 10000 (diez mil) solicitudes al servidor. Cada ronda de 10000 debe terminar para que comience la ronda siguiente.
+
+En cada ronda, se mide el tiempo total de respuesta del servidor para el total de las solicitudes.
+
+Para evitar sesgos por recursos propios de la máquina que emite las solicitudes, se crean dos blancos que sirven de comparación:
+
+   a) blanco de script: El script nunca llama a curl, pero hace todos los forks y escrituras de logs normalmente. Este tiempo es propio del script de pruebas.
+   b) blanco de red:    Se usa curl pero la solicitud para los WS es inválida, forzando un error y evitando que el servidor ejecute el WS en cuestión. Este tiempo de respuesta es el mínimo que se puede obtener sin tener en cuenta la aplicación.
+
+Se puede usar este script para obtener muestras de 'n' mediciones de tiempo en condiciones controladas.
+
+Al finalizar el SCRIPT, la última ejecución de todos los casos de prueba se guarda, sirviendo también para probar situaciones particulares.
+
+Cada test está titulado de manera intuitiva.
+
+Estas pruebas se usaron para elaborar el siguiente gráfico, donde cliente y servidor se encuentran en la misma máquina, pero usan la red local para comunicarse. A fin de dar significado a los tiempos obtenidos, considerar que se trata de un Intel® Core™ i5-4210U CPU @ 1.70 GHz con 4 núcleos y 5.7 GiB de memoria RAM. El servidor fue configurado con `RESTFUL_MAX_THREADS=4`. No se grafica el blanco de script por haber resultado muy similar al blanco de red:
+
+![GRAFICO](test/grafico-tiempo.png "Tiempo de respuesta de la aplicación para solicitudes de ancestro-comun")
