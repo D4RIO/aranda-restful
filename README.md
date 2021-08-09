@@ -3,23 +3,29 @@
 
 Este repositorio corresponde a una prueba técnica para Aranda Software.
 
+Implementa un árbol binario con una búsqueda de ancestro común más cercano que se basa en recorrer con DFS y, copiando la pila de trabajo de DFS, encontrar el primer nodo de coincidencia entre dos rutas.
+
+En cuanto a la interfaz, implementa web services (RestBed) con JSON (NLohmann). En cuanto a documentación usa Doxygen y, en cuanto a testing unitario, DocTest.
+
 ## Prerrequisitos - Dependencias ##
 
 Esta interfaz usa [Restbed de Corvusoft](https://github.com/Corvusoft/restbed "Restbed is a comprehensive and consistent programming model for building applications that require seamless and secure communication over HTTP, with the ability to model a range of business processes, designed to target mobile, tablet, desktop and embedded production environments.") y fue programada y probada en [Ubuntu 21.04](https://ubuntu.com/download/desktop "Ubuntu is an ancient African word meaning ‘humanity to others’. It is often described as reminding us that ‘I am what I am because of who we all are’. We bring the spirit of Ubuntu to the world of computers and software. The Ubuntu distribution represents the best of what the world’s software community has shared with the world.").
 
-Para usar restbed en Ubuntu:
+Todas estas dependencias están probadas en Ubuntu 21.04.
+
+Para usar RestBed en Ubuntu:
 
 ``` bash
 apt install librestbed0 librestbed-dev
 ```
 
-Esta interfaz usa [SQLite3](https://www.sqlite.org/index.html "SQLite is a C-language library that implements a small, fast, self-contained, high-reliability, full-featured, SQL database engine. SQLite source code is in the public-domain and is free to everyone to use for any purpose."), en Ubuntu:
+Esta interfaz usa [SQLite3](https://www.sqlite.org/index.html "SQLite is a C-language library that implements a small, fast, self-contained, high-reliability, full-featured, SQL database engine. SQLite source code is in the public-domain and is free to everyone to use for any purpose."). Para usar SQLite en Ubuntu:
 
 ``` bash
 apt install libsqlite3-0 libsqlite3-dev
 ```
 
-Para compilar se utilizan [`GNU make`](https://www.gnu.org/software/make/ "GNU Make is a tool which controls the generation of executables and other non-source files of a program from the program's source files.") y `g++`, parte de [`GCC`](https://gcc.gnu.org/ "The GNU Compiler Collection includes front ends for C, C++, Objective-C, Fortran, Ada, Go, and D, as well as libraries for these languages (libstdc++,...). GCC was originally written as the compiler for the GNU operating system. The GNU system was developed to be 100% free software, free in the sense that it respects the user's freedom."), para instalar:
+Para compilar se utilizan [`GNU make`](https://www.gnu.org/software/make/ "GNU Make is a tool which controls the generation of executables and other non-source files of a program from the program's source files.") y `g++`, parte de [`GCC`](https://gcc.gnu.org/ "The GNU Compiler Collection includes front ends for C, C++, Objective-C, Fortran, Ada, Go, and D, as well as libraries for these languages (libstdc++,...). GCC was originally written as the compiler for the GNU operating system. The GNU system was developed to be 100% free software, free in the sense that it respects the user's freedom."), para instalar estas utilidades en Ubuntu:
 
 ``` bash
 apt install build-essential
@@ -130,8 +136,8 @@ En cada ronda, se mide el tiempo total de respuesta del servidor para el total d
 
 Para evitar sesgos por recursos propios de la máquina que emite las solicitudes, se crean dos blancos que sirven de comparación:
 
-   a) blanco de script: El script nunca llama a curl, pero hace todos los forks y escrituras de logs normalmente. Este tiempo es propio del script de pruebas.
-   b) blanco de red:    Se usa curl pero la solicitud para los WS es inválida, forzando un error y evitando que el servidor ejecute el WS en cuestión. Este tiempo de respuesta es el mínimo que se puede obtener sin tener en cuenta la aplicación.
+   1. blanco de script: El script nunca llama a curl, pero hace todos los forks y escrituras de logs normalmente. Este tiempo es propio del script de pruebas.
+   2. blanco de red:    Se usa curl pero la solicitud para los WS es inválida, forzando un error y evitando que el servidor ejecute el WS en cuestión. Este tiempo de respuesta es el mínimo que se puede obtener sin tener en cuenta la aplicación.
 
 Se puede usar este script para obtener muestras de 'n' mediciones de tiempo en condiciones controladas.
 
