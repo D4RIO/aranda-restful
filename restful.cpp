@@ -208,8 +208,7 @@ int Endpoint::runWS(std::shared_ptr<Control> control)
                             if (body.size()>(1024*1024)) {
                                 auto msg = std::string("Se admiten hasta 1 MiB de datos");
                                 session->close(restbed::BAD_REQUEST, msg.c_str(), {
-                                        {"Content-Length", std::to_string(msg.length())},
-                                        {"Connection", "close"}
+                                        {"Content-Length", std::to_string(msg.length())}
                                     });
                             }
                             else {
@@ -221,23 +220,20 @@ int Endpoint::runWS(std::shared_ptr<Control> control)
                                     auto id = control->newTreeInterface(request);
                                     response["id"]=id;
                                     session->close( restbed::OK, response.dump(), {
-                                            {"Content-Length", std::to_string(response.dump().length())},
-                                            {"Connection", "close"}
+                                            {"Content-Length", std::to_string(response.dump().length())}
                                         });
                                 }
                                 catch (std::string e){
                                     auto msg = std::string("Ocurrió un error al procesar la solicitud: ");
                                     msg.append(e);
                                     session->close(restbed::BAD_REQUEST, msg, {
-                                            {"Content-Length", std::to_string(msg.length())},
-                                            {"Connection", "close"}
+                                            {"Content-Length", std::to_string(msg.length())}
                                         });
                                 }
                                 catch (...) {
                                     auto msg = std::string("Ocurrió un error al procesar la solicitud.");
                                     session->close(restbed::BAD_REQUEST, msg, {
-                                            {"Content-Length", std::to_string(msg.length())},
-                                            {"Connection", "close"}
+                                            {"Content-Length", std::to_string(msg.length())}
                                         });                                    
                                 }
                             }
@@ -259,39 +255,38 @@ int Endpoint::runWS(std::shared_ptr<Control> control)
                 if (qValue == "") {
                     auto msg = std::string("Campo de solicitud vacío (q)");
                     session->close(restbed::BAD_REQUEST, msg, {
-                            {"Content-Length", std::to_string(msg.length())},
-                            {"Connection", "close"}
+                            {"Content-Length", std::to_string(msg.length())}
                         });
                 }
                 else {
 
                     try {
                         std::shared_ptr<json> LCA = control->lowestCommonAncestorInterface(json::parse(qValue));
-                        std::string LCAConvertido;
+                        json response;
                         if (LCA->is_string()) {
-                            LCAConvertido = LCA->get<std::string>();
+                            response["node"] = LCA->get<std::string>();
+                        }
+                        else if (LCA->is_number()) {
+                            response["node"] = LCA->get<int>();
                         }
                         else {
-                            LCAConvertido = LCA->dump();
+                            response["node"] = LCA->dump();
                         }
-                        session->close (restbed::OK, LCAConvertido, {
-                                {"Content-Length", std::to_string(LCAConvertido.length())},
-                                {"Connection", "close"}
+                        session->close (restbed::OK, response.dump(), {
+                                {"Content-Length", std::to_string(response.dump().length())}
                             });
                     }
                     catch (std::string e){
                         auto msg = std::string("Ocurrió un error al procesar la solicitud: ");
                         msg.append(e);
                         session->close(restbed::BAD_REQUEST, msg, {
-                                {"Content-Length", std::to_string(msg.length())},
-                                {"Connection", "close"}
+                                {"Content-Length", std::to_string(msg.length())}
                             });
                     }
                     catch (...) {
                         auto msg = std::string("Ocurrió un error al procesar la solicitud.");
                         session->close(restbed::BAD_REQUEST, msg, {
-                                {"Content-Length", std::to_string(msg.length())},
-                                {"Connection", "close"}
+                                {"Content-Length", std::to_string(msg.length())}
                             });                                    
                     }
 
@@ -311,6 +306,7 @@ int Endpoint::runWS(std::shared_ptr<Control> control)
     try {
         settings->set_worker_limit( std::stoi( max_threads ) );
         settings->set_port( std::stoi( port_no ) );
+        settings->set_default_header( "Connection", "close" );
     }
     catch (...) {
         std::cerr << "Error fatal estableciendo la configuración del servidor. "

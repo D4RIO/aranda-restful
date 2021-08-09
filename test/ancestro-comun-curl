@@ -78,27 +78,27 @@ EOF
 }
 
 CASE_A="El más alto es ancestro común"
-EXPECTED_A=3
+EXPECTED_A='{"node":3}'
 DATA_A=$(crear_json 1 3 9)
 
 CASE_B="El ancestro común es el nodo raíz"
-EXPECTED_B=1
+EXPECTED_B='{"node":1}'
 DATA_B=$(crear_json 1 2 8)
 
 CASE_C="El nodo raíz es el más alto y ancestro común"
-EXPECTED_C=1
+EXPECTED_C='{"node":1}'
 DATA_C=$(crear_json 1 1 7)
 
 CASE_D="Mismo nodo, es su propio ancestro común"
-EXPECTED_D=3
+EXPECTED_D='{"node":3}'
 DATA_D=$(crear_json 1 3 3)
 
 CASE_E="Mismo nodo, nodo raíz, es su propio ancestro común"
-EXPECTED_E=1
+EXPECTED_E='{"node":1}'
 DATA_E=$(crear_json 1 1 1)
 
 CASE_F="Mismo nodo, última hoja, es su propio ancestro común"
-EXPECTED_F=8
+EXPECTED_F='{"node":8}'
 DATA_F=$(crear_json 1 8 8)
 
 
@@ -116,7 +116,7 @@ run_test() {
     else
         RESULT_OK="FAIL"
     fi
-    echo "TEST ${RESULT_OK} res:{$RESULT} (desc: $1)"
+    echo "TEST ${RESULT_OK} respuesta:[${RESULT}] ($1)"
 }
 
 # Este test sirve para restar tiempo minimo de respuesta del WS.
@@ -129,7 +129,7 @@ run_blank_net_test() {
     else
         RESULT_OK="FAIL"
     fi
-    echo "NET-BLANK ${RESULT_OK} res:{$RESULT} (desc: $1)"
+    echo "NET-BLANK ${RESULT_OK} respuesta:[${RESULT}] ($1)"
 }
 
 # Este test sirve para restar tiempo de este script
@@ -139,7 +139,7 @@ run_blank_test() {
     then
         RESULT_OK="OK"
     fi
-    echo "BLANK ${RESULT_OK} res:{$RESULT} (desc: $1)"
+    echo "BLANK ${RESULT_OK} respuesta:[${RESULT}] ($1)"
 }
 
 
