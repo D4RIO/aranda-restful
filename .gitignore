@@ -6,3 +6,7 @@ restful
 
 # objetos
 *.o
+/restful.db
+/test/test
+/test/test.db
+/test/doctest.h
