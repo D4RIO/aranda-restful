@@ -1,6 +1,5 @@
 #include <iostream>
 #include <memory>    // make_shared<>() ... etc
-#include <restbed>   // REST API
 #include <stack>     // std::stack<>
 #include "restful.hpp"
 
@@ -13,6 +12,13 @@ Control::Control()
 {
     webServices = std::make_shared<Endpoint>();
     modeloArbol = std::make_shared<Modelo>();
+}
+
+/** ***************************************************************************
+ * Destructor. Llama a los destructores miembros.
+ ** ***************************************************************************/
+Control::~Control()
+{
 }
 
 /** ***************************************************************************
@@ -52,6 +58,13 @@ std::shared_ptr<json> Control::lowestCommonAncestorInterface(const json obj)
 Modelo::Modelo()
 {
     persistService = std::make_shared<Persist>();
+}
+
+/** ***************************************************************************
+ * Destructor. Llama a los destructores miembro.
+ ** ***************************************************************************/
+Modelo::~Modelo()
+{
 }
 
 /** ***************************************************************************
@@ -173,6 +186,22 @@ std::shared_ptr<json> Modelo::lowestCommonAncestor(const json objBusqueda)
     }
 
     throw std::string("Error encontrando el ancestro. Verifique que el objeto no contenga más de un árbol.");
+}
+
+/** ***************************************************************************
+ * Contructor
+ ** ***************************************************************************/
+Endpoint::Endpoint()
+{
+    this->service = std::make_shared<restbed::Service>();
+}
+
+/** ***************************************************************************
+ * Destructor
+ ** ***************************************************************************/
+Endpoint::~Endpoint()
+{
+    service->stop();
 }
 
 /** ***************************************************************************
@@ -315,10 +344,9 @@ int Endpoint::runWS(std::shared_ptr<Control> control)
     }
 
     try {
-        restbed::Service service;
-        service.publish( res1 );
-        service.publish( res2 );
-        service.start( settings );
+        service->publish( res1 );
+        service->publish( res2 );
+        service->start( settings );
     }
     catch (...) {
         std::cerr << "Error fatal: No se pudieron exponer los webservices! "
@@ -530,6 +558,8 @@ std::string Persist::select(const std::string id)
  ** ***************************************************************************/
 Persist::~Persist()
 {
+    std::cout << "Finalizando conexión a Base de Datos" << std::endl;
+
     auto exit = sqlite3_finalize ( this->insert_stmt );
 
     if (exit)

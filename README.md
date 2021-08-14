@@ -39,7 +39,7 @@ Con todas las dependencias anteriores satisfechas, se puede compilar tan simplem
 make
 ```
 
-Para compilar la documentación [DOXYGEN](https://www.doxygen.nl/index.html "Doxygen is the de facto standard tool for generating documentation from annotated C++ sources, but it also supports other popular programming languages such as C, Objective-C, C#, PHP, Java, Python, IDL (Corba, Microsoft, and UNO/OpenOffice flavors), Fortran, VHDL and to some extent D."):
+Para compilar la documentación [DOXYGEN](https://www.doxygen.nl/index.html "Doxygen is the de facto standard tool for generating documentation from annotated C++ sources, but it also supports other popular programming languages such as C, Objective-C, C#, PHP, Java, Python, IDL (Corba, Microsoft, and UNO/OpenOffice flavors), Fortran, VHDL and to some extent D.") (requiere Doxygen):
 
 ``` bash
 make doc
@@ -53,11 +53,18 @@ Las pruebas unitarias están escritas usando [DOCtest](https://github.com/onqtam
 make test
 ```
 
+Para compilar y ejecutar mediante [valgrind](https://valgrind.org/ "The Valgrind distribution currently includes seven production-quality tools: a memory error detector, two thread error detectors, a cache and branch-prediction profiler, a call-graph generating cache and branch-prediction profiler, and two different heap profilers.") (requiere valgrind):
+
+``` bash
+make valgrind-test
+```
+
+
 ## Variables de entorno ##
 
 Se usan variables de entorno para configurar los web services. Estas variables son:
 
- 1. `RESTFUL_PORT_NO`: El número de puerto en el que servir los web services. Default: `80`.
+ 1. `RESTFUL_PORT`: El número de puerto en el que servir los web services. Default: `80`.
  2. `RESTFUL_DB`: El nombre del archivo de base de datos. Default: `restful.db`.
  3. `RESTFUL_MAX_THREADS`: El número máximo de hilos a usar. Default: `4`.
 

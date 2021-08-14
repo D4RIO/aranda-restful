@@ -14,7 +14,7 @@ CCFLAGS:=-Wall \
     -Wextra \
     -Wunused-but-set-variable \
     -Wunused-result \
-    -std=c++11 \
+    -std=c++14 \
     -Wpedantic \
     -fstack-protector-all \
     -Wstack-protector \
@@ -47,10 +47,16 @@ doc:
 	doxygen doxygen.config
 clean:
 	-rm -rf $(CLEAN_TARGETS)
-test: test/test.cpp test/doctest.h json.hpp restful.o
+test/test: test/test.cpp test/doctest.h json.hpp restful.o
 	$(CC) $(CCFLAGS) -o test/$@ $^ $(LINK_FLAGS)
+test: test/test
 	-rm test/test.db
 	test/$@ -s
+	@echo "La base de datos test/test.db se borra con 'make clean' o antes de comenzar con 'make test'."
+	@echo "Puede examinarla con 'sqlite3 test/test.db'."
+valgrind-test: test/test
+	-rm test/test.db
+	valgrind --leak-check=full -s test/$@ -s
 	@echo "La base de datos test/test.db se borra con 'make clean' o antes de comenzar con 'make test'."
 	@echo "Puede examinarla con 'sqlite3 test/test.db'."
 test/doctest.h:

@@ -3,6 +3,7 @@
 
 #include <memory>    // shared_ptr
 #include <mutex>     // mutex
+#include <restbed>   // REST API
 #include <sqlite3.h> // SQLite3
 #include "json.hpp"  // soporte para JSON (nlohmann)
 using json=nlohmann::json;
@@ -39,9 +40,11 @@ public:
  * Encapsula el manejo de cualquier opcion de interfaz.
  */
 class Endpoint {
+  std::shared_ptr<restbed::Service> service; //< Control de los web services
 public:
-  Endpoint () {}
-  int runWS(std::shared_ptr<Control> control); //< Control de los WebServices
+  Endpoint ();
+  ~Endpoint();
+  int runWS(const std::shared_ptr<Control> control); //< Ejecución de los web services
 };
 
 
@@ -54,6 +57,7 @@ private:
   std::shared_ptr<Persist> persistService;  //< Acceso al servicio de persistencia en BBDD
 public:
   Modelo();
+  ~Modelo();
   int createNewTree(const json);
   std::shared_ptr<json> lowestCommonAncestor(const json);
 };
@@ -71,6 +75,7 @@ private:
   std::shared_ptr<Modelo>   modeloArbol; //< Acceso al modelo
 public:
   Control();
+  ~Control();
   int run(void);
   int newTreeInterface(const json);
   std::shared_ptr<json> lowestCommonAncestorInterface(const json);
