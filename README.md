@@ -7,6 +7,14 @@ Implementa un árbol binario con una búsqueda de ancestro común más cercano q
 
 En cuanto a la interfaz, implementa web services (RestBed) con JSON (NLohmann). En cuanto a documentación usa Doxygen y, en cuanto a testing unitario, DocTest.
 
+## Diseño ##
+
+El diseño general es similar a un MVCS, con los web services cargados dinámicamente como plugins. Esto permite, a futuro, establecer un sistema para carga y actualización de los web services en caliente, con pocas modificaciones respecto del código actual. El encapsulamiento que se genera es tal que escribir un web service nuevo es agnóstico de todo el resto del modelo.
+
+![Diagrama](diagrama.png "Diagrama de la Aplicación")
+
+En cuanto a la documentación específica de la implementación (diagramas de clases, etc.) vea `make doc` (requiere Doxygen).
+
 ## Prerrequisitos - Dependencias ##
 
 Esta interfaz usa [Restbed de Corvusoft](https://github.com/Corvusoft/restbed "Restbed is a comprehensive and consistent programming model for building applications that require seamless and secure communication over HTTP, with the ability to model a range of business processes, designed to target mobile, tablet, desktop and embedded production environments.") y fue programada y probada en [Ubuntu 21.04](https://ubuntu.com/download/desktop "Ubuntu is an ancient African word meaning ‘humanity to others’. It is often described as reminding us that ‘I am what I am because of who we all are’. We bring the spirit of Ubuntu to the world of computers and software. The Ubuntu distribution represents the best of what the world’s software community has shared with the world.").
@@ -107,6 +115,24 @@ Los webservices se inician en el servidor, que puede ser la misma máquina que e
 
 En todos los nodos debe existir el campo `node`, y los datos pueden ser cualesquiera que desee siempre que cumplan con el modelo de JSON (incluso otros objetos). Los campos `left` y `right` son opcionales. En conformidad con el [estándar JSON](https://datatracker.ietf.org/doc/html/rfc8259.html#section-1 "RFC 8259: The JavaScript Object Notation (JSON) Data Interchange Format"), el orden de los campos no importa.
 
+La respuesta de `crear-arbol` vuelve en formato JSON, indicando el ID del árbol, ya sea que fue creado o que coincide con un árbol creado con anterioridad. En cualquier caso, el ID identifica al árbol en cuestión:
+
+``` json
+{"id":<ID>}
+```
+
+Este mismo ID debe ser usado en la consulta `ancestro-comun`, junto a los nodos de los que se quiere conocer el ancestro común, llámense `node_a` y `node_b`.
+
+``` json
+{
+    "id":<ID>,
+    "node_a":<datos>,
+    "node_b":<datos>
+}
+```
+
+Véase que los datos en los nodos deben ser coincidentes con aquellos que existen en los nodos del árbol creado anteriormente. En caso de cualquier error, el webservice devuelve BAD REQUEST. En caso de éxito, el web service devuelve **el contenido del nodo que es ancestro común**.
+
 Para probar los servicios manualmente, se puede usar [curl](https://curl.se/docs/manpage.html "CURL: command line tool and library for transferring data with URLs"), por ejemplo:
 
 ``` bash
@@ -135,7 +161,7 @@ Se incluyen en el directorio `test`, dos scripts llamados `crear-arbol-curl` y `
  1. `crear-arbol-curl` usa CURL para acceder al web service de creación de un árbol modelo.
  2. `ancestro-comun-curl` usa CURL para hacer solicitudes de varios casos de uso de pedido de ancestro común.
 
-Estas son pruebas de stress para los web services, enfocadas en el algoritmo de búsqueda del ancestro común, que es el centro de este programa.
+Estas son pruebas de stress para los web services, enfocadas en el algoritmo de búsqueda del ancestro común, que es el centro de este programa (nótese que estas pruebas NO miden cómo crece el algoritmo con la profundidad del árbol ni el número de nodos, sino cómo se comporta en servicio atendiendo solicitudes similares, ésto es deliberado).
 
 Al llamar `bash test/ancestro-comun-curl 5 10000` por ejemplo, se hacen 5 rondas de 10000 (diez mil) solicitudes al servidor. Cada ronda de 10000 debe terminar para que comience la ronda siguiente.
 
