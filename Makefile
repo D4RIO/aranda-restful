@@ -35,23 +35,26 @@ CLEAN_TARGETS:=\
 # TARGETS VIRTUALES
 .PHONY: all doc clean test
 
+# GENERICOS
+.cpp.o:
+	$(CC) $(CCFLAGS) -c $< -fPIC
+
 all:restful libcrear-arbol.so libancestro-comun.so
+
 restful: restful.o main.o plugin.o
 	$(CC) $(CCFLAGS) -o $@ $^ $(LINK_FLAGS)
-libcrear-arbol.so: crear-arbol.o plugin.o restful.o
+
+libcrear-arbol.so: crear-arbol.o restful.o
 	$(CC) $(CCFLAGS) -rdynamic -o $@ $^ -shared $(LINK_FLAGS)
-libancestro-comun.so: ancestro-comun.o plugin.o restful.o
+libancestro-comun.so: ancestro-comun.o restful.o
 	$(CC) $(CCFLAGS) -rdynamic -o $@ $^ -shared $(LINK_FLAGS)
+
 main.o: main.cpp restful.hpp
-	$(CC) $(CCFLAGS) -c $<
 plugin.o: plugin.cpp plugin.hpp restful.hpp
-	$(CC) $(CCFLAGS) -c $< -fPIC
 restful.o: restful.cpp json.hpp restful.hpp
-	$(CC) $(CCFLAGS) -c $< -fPIC
 crear-arbol.o: crear-arbol.cpp restful.hpp
-	$(CC) $(CCFLAGS) -c $< -fPIC
 ancestro-comun.o: ancestro-comun.cpp restful.hpp
-	$(CC) $(CCFLAGS) -c $< -fPIC
+
 json.hpp:
 	[ -e $@ ] || wget --quiet --show-progress https://github.com/nlohmann/json/releases/download/v3.9.1/json.hpp
 doc:
