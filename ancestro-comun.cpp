@@ -60,9 +60,9 @@ void AncestroComun::handler(const std::shared_ptr<restbed::Session> session)
                     {"Content-Length", std::to_string(response.dump().length())}
                 });
         }
-        catch (std::string e){
+        catch (std::exception& e){
             auto msg = std::string("Ocurrió un error al procesar la solicitud: ");
-            msg.append(e);
+            msg.append(e.what());
             session->close(restbed::BAD_REQUEST, msg, {
                     {"Content-Length", std::to_string(msg.length())}
                 });

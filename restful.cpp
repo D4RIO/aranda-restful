@@ -79,7 +79,7 @@ Modelo::~Modelo()
 int Modelo::createNewTree(const json o)
 {
     if (o.find("node")==o.end())
-        throw std::string("Todos los árboles deben tener al menos un nodo!");
+        throw std::logic_error( "Todos los árboles deben tener al menos un nodo!" );
 
     // Los errores en INSERT no se informan detalladamente al cliente, pero se loguean
     try {
@@ -87,13 +87,13 @@ int Modelo::createNewTree(const json o)
         return persistService->insert(o.dump());
 
     }
-    catch (std::string e) {
-        std::cerr << "Error en INSERT: " << e << std::endl;
-        throw std::string ("Error interno. No se puede crear el árbol.");
+    catch (std::exception& e) {
+        std::cerr << "Error en INSERT: " << e.what() << std::endl;
+        throw std::runtime_error ( "Error interno. No se puede crear el árbol." );
     }
     catch (...) {
         std::cerr << "Error inesperado en INSERT" << std::endl;
-        throw std::string ("Error interno. No se puede crear el árbol.");
+        throw std::runtime_error ( "Error interno. No se puede crear el árbol." );
     }
 }
 
@@ -116,24 +116,24 @@ std::shared_ptr<json> Modelo::lowestCommonAncestor(const json objBusqueda)
     };
 
     if (! contieneNodo (objBusqueda, "id"))
-        throw std::string ("ID del árbol requerido (falta campo id)");
+        throw std::logic_error ( "ID del árbol requerido (falta campo id)" );
 
     if (! contieneNodo (objBusqueda, "node_a") ||
         ! contieneNodo (objBusqueda, "node_b") )
-        throw std::string ("Nodos de búsqueda requeridos (falta campo node_a o node_b)");
+        throw std::logic_error ( "Nodos de búsqueda requeridos (falta campo node_a o node_b)" );
 
     try {
         std::string arbol_string = this->persistService->select(objBusqueda["id"].dump());
         arbol = json::parse(arbol_string);
     }
-    catch (std::string e) {
+    catch (std::exception& e) {
         std::cerr << "No se encontró el árbol ID: ["<< objBusqueda["id"] << "]" << std::endl;
-        std::cerr << "Descripción: " << e << std::endl;
-        throw std::string("No se encontró ningún árbol (campo id erróneo)");
+        std::cerr << "Descripción: " << e.what() << std::endl;
+        throw std::logic_error ( "No se encontró ningún árbol (campo id erróneo)" );
     }
     catch (...) {
         std::cerr << "No se encontró el árbol ID: ["<< objBusqueda["id"] << "]" << std::endl;
-        throw std::string("No se encontró ningún árbol (campo id erróneo)");
+        throw std::logic_error ( "No se encontró ningún árbol (campo id erróneo)" );
     }
 
     // Se comienza por el nodo raíz, sin último padre
@@ -152,7 +152,7 @@ std::shared_ptr<json> Modelo::lowestCommonAncestor(const json objBusqueda)
             }
 
         if (! contieneNodo(o, "node"))
-            throw std::string (R"(Árbol mal formado, todos los nodos deben tener un campo "node")");
+            throw std::logic_error ( R"(Árbol mal formado, todos los nodos deben tener un campo "node")" );
 
         camino.push(o["node"]);
 
@@ -185,7 +185,7 @@ std::shared_ptr<json> Modelo::lowestCommonAncestor(const json objBusqueda)
         return LCA;
     }
 
-    throw std::string("Error encontrando el ancestro. Verifique que el objeto no contenga más de un árbol.");
+    throw std::logic_error ( "Error encontrando el ancestro. Verifique que el objeto no contenga más de un árbol." );
 }
 
 /** ***************************************************************************
@@ -265,7 +265,7 @@ Persist::Persist()
 
     // Esta excepción debe llegar a MAIN, no capturar antes.
     if (exit)
-        throw std::string("Error abriendo la base de datos: ").append(sqlite3_errmsg(db));
+        throw std::runtime_error (std::string("Error abriendo la base de datos: ").append(sqlite3_errmsg(db)));
 
     auto sql =                                    \
         "CREATE TABLE IF NOT EXISTS ARBOLES ( "   \
@@ -277,7 +277,7 @@ Persist::Persist()
 
     // Esta excepción debe llegar a MAIN, no capturar antes.
     if (exit)
-        throw std::string("Error creando la tabla: ").append(sqlite3_errmsg(db));
+        throw std::runtime_error ( std::string("Error creando la tabla: ").append(sqlite3_errmsg(db)) );
 
     sql =                               \
         "INSERT INTO ARBOLES (JSON) "   \
@@ -287,7 +287,7 @@ Persist::Persist()
 
     // Esta excepción debe llegar a MAIN, no capturar antes.
     if (exit)
-        throw std::string("Error compilando la consulta INSERT: ").append(sqlite3_errmsg(db));
+        throw std::runtime_error ( std::string("Error compilando la consulta INSERT: ").append(sqlite3_errmsg(db)) );
 
     sql =                                       \
         "SELECT JSON FROM ARBOLES WHERE ID = ?;";
@@ -296,7 +296,7 @@ Persist::Persist()
 
     // Esta excepción debe llegar a MAIN, no capturar antes.
     if (exit)
-        throw std::string("Error compilando la consulta SELECT JSON: ").append(sqlite3_errmsg(db));
+        throw std::runtime_error ( std::string("Error compilando la consulta SELECT JSON: ").append(sqlite3_errmsg(db)) );
 
     sql =                                       \
         "SELECT ID FROM ARBOLES WHERE JSON = ?;";
@@ -305,7 +305,7 @@ Persist::Persist()
 
     // Esta excepción debe llegar a MAIN, no capturar antes.
     if (exit)
-        throw std::string("Error compilando la consulta SELECT ID: ").append(sqlite3_errmsg(db));
+        throw std::runtime_error ( std::string("Error compilando la consulta SELECT ID: ").append(sqlite3_errmsg(db)) );
 }
 
 /** ***************************************************************************
@@ -323,10 +323,10 @@ int Persist::insert( const std::string json_to_save )
     // Esta excepción debe llegar al WS.
     // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
     if (exit && exit != SQLITE_CONSTRAINT)
-        throw std::string("Error inesperado preparándose para la consulta INSERT (reset) [")
+        throw std::runtime_error ( std::string("Error inesperado preparándose para la consulta INSERT (reset) [")
             .append(std::to_string(exit))
             .append("]: ")
-            .append(sqlite3_errmsg(db));
+            .append(sqlite3_errmsg(db)) );
 
     // INSERT INTO ARBOLES (JSON)
     // VALUES (?);
@@ -341,17 +341,20 @@ int Persist::insert( const std::string json_to_save )
     // Esta excepción debe llegar al WS.
     // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
     if (exit)
-        throw std::string("Error alimentando a la consulta INSERT (bind): ").append(sqlite3_errmsg(db));
+        throw std::runtime_error (
+            std::string("Error alimentando a la consulta INSERT (bind): ")
+            .append(sqlite3_errmsg(db)) );
 
     exit = sqlite3_step ( this->insert_stmt );
 
     // Esta excepción debe llegar al WS.
     // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
     if (exit != SQLITE_DONE && exit != SQLITE_CONSTRAINT)
-        throw std::string("Error ejecutando la consulta INSERT [")
+        throw std::runtime_error(
+            std::string("Error ejecutando la consulta INSERT [")
             .append(std::to_string(exit))
             .append("]: ")
-            .append(sqlite3_errmsg(db));
+            .append(sqlite3_errmsg(db)) );
 
     /*==================================== SELECT ======================================*/
 
@@ -361,7 +364,9 @@ int Persist::insert( const std::string json_to_save )
     // Esta excepción debe llegar al WS.
     // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
     if (exit)
-        throw std::string("Error inesperado preparándose para la consulta SELECT ID (reset): ").append(sqlite3_errmsg(db));
+        throw std::runtime_error(
+            std::string("Error inesperado preparándose para la consulta SELECT ID (reset): ")
+            .append(sqlite3_errmsg(db)) );
 
     // SELECT ID FROM ARBOLES
     // WHERE JSON=?;
@@ -376,17 +381,20 @@ int Persist::insert( const std::string json_to_save )
     // Esta excepción debe llegar al WS.
     // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
     if (exit)
-        throw std::string("Error alimentando a la consulta SELECT ID (bind): ").append(sqlite3_errmsg(db));
+        throw std::runtime_error (
+            std::string("Error alimentando a la consulta SELECT ID (bind): ")
+            .append(sqlite3_errmsg(db)) );
 
     exit = sqlite3_step ( this->select_id_stmt );
 
     // Esta excepción debe llegar al WS.
     // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
     if (exit != SQLITE_ROW)
-        throw std::string("Error ejecutando la consulta SELECT_ID (sin resultados)[")
+        throw std::runtime_error (
+            std::string("Error ejecutando la consulta SELECT_ID (sin resultados)[")
             .append(std::to_string(exit))
             .append("]: ")
-            .append(sqlite3_errmsg(db));
+            .append(sqlite3_errmsg(db)) );
 
     auto id = sqlite3_column_int ( this->select_id_stmt, 0 );
 
@@ -407,10 +415,11 @@ std::string Persist::select(const std::string id)
     // Esta excepción debe llegar al WS.
     // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
     if (exit)
-        throw std::string("Error inesperado preparándose para la consulta SELECT JSON (reset) [")
+        throw std::runtime_error (
+            std::string("Error inesperado preparándose para la consulta SELECT JSON (reset) [")
             .append(std::to_string(exit))
             .append("]: ")
-            .append(sqlite3_errmsg(db));
+            .append(sqlite3_errmsg(db)) );
 
     // SELECT JSON FROM ARBOLES
     // WHERE ID=?;
@@ -425,20 +434,22 @@ std::string Persist::select(const std::string id)
     // Esta excepción debe llegar al WS.
     // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
     if (exit)
-        throw std::string("Error alimentando a la consulta SELECT JSON (bind) [")
+        throw std::runtime_error (
+            std::string("Error alimentando a la consulta SELECT JSON (bind) [")
             .append(std::to_string(exit))
             .append("]: ")
-            .append(sqlite3_errmsg(db));
+            .append(sqlite3_errmsg(db)) );
 
     exit = sqlite3_step ( this->select_json_stmt );
 
     // Esta excepción debe llegar al WS.
     // El WS no debe informar el error al cliente. Solo un BAD REQUEST o un SERVER ERROR. Puede loguear.
     if (exit != SQLITE_ROW) {
-        throw std::string("Error ejecutando la consulta SELECT JSON (sin resultados)[")
+        throw std::runtime_error (
+            std::string("Error ejecutando la consulta SELECT JSON (sin resultados)[")
             .append(std::to_string(exit))
             .append("]: ")
-            .append(sqlite3_errmsg(db));
+            .append(sqlite3_errmsg(db)) );
     }
 
     auto result = std::string((char*)sqlite3_column_text ( this->select_json_stmt, 0 ));
