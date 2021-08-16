@@ -40,7 +40,7 @@ public:
  * Encapsula el manejo de cualquier opcion de interfaz.
  */
 class Endpoint {
-  std::shared_ptr<restbed::Service> service; //< Control de los web services
+    std::shared_ptr< restbed::Service > service; //< Control de los web services
 public:
   Endpoint ();
   ~Endpoint();

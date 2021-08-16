@@ -2,7 +2,7 @@
 CC:=g++
 
 # FLAGS DE ENLAZADO
-LINK_FLAGS:=-l restbed -l sqlite3
+LINK_FLAGS:=-lrestbed -lsqlite3 -ldl
 
 # FLAGS DEL COMPILADOR
 # Básicamente se usa C++11 (pedantic), con todas las advertencias de compilación normales y extra
@@ -14,7 +14,7 @@ CCFLAGS:=-Wall \
     -Wextra \
     -Wunused-but-set-variable \
     -Wunused-result \
-    -std=c++14 \
+    -std=c++17\
     -Wpedantic \
     -fstack-protector-all \
     -Wstack-protector \
@@ -29,34 +29,45 @@ CLEAN_TARGETS:=\
 	test/doctest.h \
 	test/test \
 	test/test.db \
-	doc/
+	doc/ \
+	lib*.so
 
 # TARGETS VIRTUALES
 .PHONY: all doc clean test
 
-all:restful
-restful: restful.o main.o
+all:restful libcrear-arbol.so libancestro-comun.so
+restful: restful.o main.o plugin.o
 	$(CC) $(CCFLAGS) -o $@ $^ $(LINK_FLAGS)
+libcrear-arbol.so: crear-arbol.o plugin.o restful.o
+	$(CC) $(CCFLAGS) -rdynamic -o $@ $^ -shared $(LINK_FLAGS)
+libancestro-comun.so: ancestro-comun.o plugin.o restful.o
+	$(CC) $(CCFLAGS) -rdynamic -o $@ $^ -shared $(LINK_FLAGS)
 main.o: main.cpp restful.hpp
 	$(CC) $(CCFLAGS) -c $<
+plugin.o: plugin.cpp plugin.hpp restful.hpp
+	$(CC) $(CCFLAGS) -c $< -fPIC
 restful.o: restful.cpp json.hpp restful.hpp
-	$(CC) $(CCFLAGS) -c $<
+	$(CC) $(CCFLAGS) -c $< -fPIC
+crear-arbol.o: crear-arbol.cpp restful.hpp
+	$(CC) $(CCFLAGS) -c $< -fPIC
+ancestro-comun.o: ancestro-comun.cpp restful.hpp
+	$(CC) $(CCFLAGS) -c $< -fPIC
 json.hpp:
 	[ -e $@ ] || wget --quiet --show-progress https://github.com/nlohmann/json/releases/download/v3.9.1/json.hpp
 doc:
 	doxygen doxygen.config
 clean:
 	-rm -rf $(CLEAN_TARGETS)
-test/test: test/test.cpp test/doctest.h json.hpp restful.o
-	$(CC) $(CCFLAGS) -o test/$@ $^ $(LINK_FLAGS)
+test/test: test/test.cpp test/doctest.h json.hpp restful.o plugin.o
+	$(CC) $(CCFLAGS) -o $@ $^ $(LINK_FLAGS)
 test: test/test
 	-rm test/test.db
-	test/$@ -s
+	$< -s
 	@echo "La base de datos test/test.db se borra con 'make clean' o antes de comenzar con 'make test'."
 	@echo "Puede examinarla con 'sqlite3 test/test.db'."
 valgrind-test: test/test
 	-rm test/test.db
-	valgrind --leak-check=full -s test/$@ -s
+	valgrind --leak-check=full -s $< -s
 	@echo "La base de datos test/test.db se borra con 'make clean' o antes de comenzar con 'make test'."
 	@echo "Puede examinarla con 'sqlite3 test/test.db'."
 test/doctest.h:

@@ -2,6 +2,7 @@
 #include <memory>    // make_shared<>() ... etc
 #include <stack>     // std::stack<>
 #include "restful.hpp"
+#include "plugin.hpp"
 
 
 
@@ -65,6 +66,7 @@ Modelo::Modelo()
  ** ***************************************************************************/
 Modelo::~Modelo()
 {
+    persistService->~Persist();
 }
 
 /** ***************************************************************************
@@ -110,8 +112,6 @@ std::shared_ptr<json> Modelo::lowestCommonAncestor(const json objBusqueda)
     json arbol;
 
     auto contieneNodo = [] (json o, std::string nodo) {
-        // closure para simplificar la verificación de existencia
-        // de un nodo en un objeto JSON
         return o.find(nodo)!=o.end();
     };
 
@@ -193,7 +193,7 @@ std::shared_ptr<json> Modelo::lowestCommonAncestor(const json objBusqueda)
  ** ***************************************************************************/
 Endpoint::Endpoint()
 {
-    this->service = std::make_shared<restbed::Service>();
+    this->service = std::make_shared< restbed::Service >();
 }
 
 /** ***************************************************************************
@@ -212,115 +212,8 @@ Endpoint::~Endpoint()
  ** ***************************************************************************/
 int Endpoint::runWS(std::shared_ptr<Control> control)
 {
-    auto res1 = std::make_shared<restbed::Resource>();
-    auto res2 = std::make_shared<restbed::Resource>();
-
-    res1->set_path( "/crear-arbol" );
-    res1->set_method_handler( "POST",
-            [&](const std::shared_ptr<restbed::Session> session)
-            { /* Web Service 1 : POST (Crear tree) */
-
-                const auto request = session->get_request();
-
-                // Se obtiene la longitud del contenido de la solicitud en content_length
-                int content_length;
-                request->get_header("Content-Length", content_length, 0);
-
-                // Procesa el contenido del POST
-                session->fetch(content_length,
-                        [&](const std::shared_ptr<restbed::Session> session, const restbed::Bytes &body)
-                        {
-                            // RestBed devuelve un contenedor (vector<uint8_t>)
-                            // Para impedir que el webservice permita crear árboles excesivamente
-                            // grandes, se limita el tamaño máximo del pedido a 1 MiB, que debería
-                            // ser suficiente para representar árboles binarios.
-                            if (body.size()>(1024*1024)) {
-                                auto msg = std::string("Se admiten hasta 1 MiB de datos");
-                                session->close(restbed::BAD_REQUEST, msg.c_str(), {
-                                        {"Content-Length", std::to_string(msg.length())}
-                                    });
-                            }
-                            else {
-                                auto req_string = std::string((char*)body.data(), body.size());
-                                auto request = json::parse(req_string);
-
-                                try {
-                                    json response;
-                                    auto id = control->newTreeInterface(request);
-                                    response["id"]=id;
-                                    session->close( restbed::OK, response.dump(), {
-                                            {"Content-Length", std::to_string(response.dump().length())}
-                                        });
-                                }
-                                catch (std::string e){
-                                    auto msg = std::string("Ocurrió un error al procesar la solicitud: ");
-                                    msg.append(e);
-                                    session->close(restbed::BAD_REQUEST, msg, {
-                                            {"Content-Length", std::to_string(msg.length())}
-                                        });
-                                }
-                                catch (...) {
-                                    auto msg = std::string("Ocurrió un error al procesar la solicitud.");
-                                    session->close(restbed::BAD_REQUEST, msg, {
-                                            {"Content-Length", std::to_string(msg.length())}
-                                        });                                    
-                                }
-                            }
-                        });
-            });
-
-  
-    res2->set_path( "/ancestro-comun" );
-    res2->set_method_handler( "GET",
-            [&](const std::shared_ptr<restbed::Session> session)
-            { /* Web Service 2 : GET */
-                              
-                const auto request = session->get_request( );
-
-                auto content_length = 0;
-                request->get_header( "Content-Length", content_length);
-                std::string qValue = request->get_query_parameter("q", "");
-
-                if (qValue == "") {
-                    auto msg = std::string("Campo de solicitud vacío (q)");
-                    session->close(restbed::BAD_REQUEST, msg, {
-                            {"Content-Length", std::to_string(msg.length())}
-                        });
-                }
-                else {
-
-                    try {
-                        std::shared_ptr<json> LCA = control->lowestCommonAncestorInterface(json::parse(qValue));
-                        json response;
-                        if (LCA->is_string()) {
-                            response["node"] = LCA->get<std::string>();
-                        }
-                        else if (LCA->is_number()) {
-                            response["node"] = LCA->get<int>();
-                        }
-                        else {
-                            response["node"] = LCA->dump();
-                        }
-                        session->close (restbed::OK, response.dump(), {
-                                {"Content-Length", std::to_string(response.dump().length())}
-                            });
-                    }
-                    catch (std::string e){
-                        auto msg = std::string("Ocurrió un error al procesar la solicitud: ");
-                        msg.append(e);
-                        session->close(restbed::BAD_REQUEST, msg, {
-                                {"Content-Length", std::to_string(msg.length())}
-                            });
-                    }
-                    catch (...) {
-                        auto msg = std::string("Ocurrió un error al procesar la solicitud.");
-                        session->close(restbed::BAD_REQUEST, msg, {
-                                {"Content-Length", std::to_string(msg.length())}
-                            });                                    
-                    }
-
-                }
-            });
+    auto res1 = d::plugin("./libcrear-arbol.so", control);
+    auto res2 = d::plugin("./libancestro-comun.so", control);
 
     char const *max_threads = getenv( "RESTFUL_MAX_THREADS" );
     if ( ! max_threads )
@@ -558,34 +451,41 @@ std::string Persist::select(const std::string id)
  ** ***************************************************************************/
 Persist::~Persist()
 {
+    const std::lock_guard<std::mutex> lock( this->stmt_mutex );
     std::cout << "Finalizando conexión a Base de Datos" << std::endl;
 
-    auto exit = sqlite3_finalize ( this->insert_stmt );
-
-    if (exit)
+    
+    if (auto exit = sqlite3_finalize ( this->insert_stmt ); exit)
         std::cerr << std::string("Error finalizando la consulta INSERT: [")
             .append(std::to_string(exit))
             .append("]: ")
             .append(sqlite3_errmsg(db))
                   << std::endl;
 
-    exit = sqlite3_finalize ( this->select_id_stmt );
+    this->insert_stmt = NULL;
 
-    if (exit)
+    
+
+    if (auto exit = sqlite3_finalize ( this->select_id_stmt ); exit)
         std::cerr << std::string("Error finalizando la consulta SELECT ID: [")
             .append(std::to_string(exit))
             .append("]: ")
             .append(sqlite3_errmsg(db))
                   << std::endl;
 
-    exit = sqlite3_finalize ( this->select_json_stmt );
-        
-    if (exit)
+    this->select_id_stmt = NULL;
+
+
+    if (auto exit = sqlite3_finalize ( this->select_json_stmt ); exit)
         std::cerr << std::string("Error finalizando la consulta SELECT JSON: [")
             .append(std::to_string(exit))
             .append("]: ")
             .append(sqlite3_errmsg(db))
                   << std::endl;
 
+    this->select_json_stmt = NULL;
+
     sqlite3_close( this->db );
+
+    this->db = NULL;
 }
