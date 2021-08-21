@@ -180,4 +180,4 @@ Cada test está titulado de manera intuitiva.
 
 Estas pruebas se usaron para elaborar el siguiente gráfico, donde cliente y servidor se encuentran en la misma máquina, pero usan la red local para comunicarse. A fin de dar significado a los tiempos obtenidos, considerar que se trata de un Intel® Core™ i5-4210U CPU @ 1.70 GHz con 4 núcleos y 5.7 GiB de memoria RAM. El servidor fue configurado con `RESTFUL_MAX_THREADS=4`. No se grafica el blanco de script por haber resultado muy similar al blanco de red:
 
-![GRAFICO](test/grafico-tiempo.png "Tiempo de respuesta de la aplicación para solicitudes de ancestro-comun")
+![GRAFICO](grafico-tiempo.png "Tiempo de respuesta de la aplicación para solicitudes de ancestro-comun")
